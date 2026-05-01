@@ -16,20 +16,6 @@ Cashlytics helps you track, analyze, and optimize your finances in one place—g
 - **Database**: MongoDB
 - **Containerization**: Docker + docker-compose
 
-## Project Structure
-
-```
-cashlytics/
-├── backend/
-│   ├── app.py              # Flask REST API
-│   ├── requirements.txt
-│   ├── Dockerfile
-│   └── static/
-│       └── index.html      # Vue.js single-page frontend
-├── docker-compose.yml
-└── README.md
-```
-
 ## Running Locally
 
 **Prerequisites**: [Docker](https://docs.docker.com/get-docker/) and [docker-compose](https://docs.docker.com/compose/install/)
@@ -44,24 +30,4 @@ To rebuild after code changes:
 
 ```bash
 docker-compose up --build
-```
-
-## API Endpoints
-
-| Method | Endpoint             | Description          |
-|--------|----------------------|----------------------|
-| GET    | `/expenses`          | List all expenses    |
-| POST   | `/expenses`          | Create an expense    |
-| PUT    | `/expenses/<id>`     | Update an expense    |
-| DELETE | `/expenses/<id>`     | Delete an expense    |
-
-### Expense Data Model
-
-```json
-{
-  "description": "Electricity bill",
-  "deadline": "2025-06-01",
-  "value": 120.50,
-  "recurrent": true
-}
 ```

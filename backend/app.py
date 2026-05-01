@@ -14,13 +14,10 @@ db = client["cashlytics"]
 expenses_col = db["expenses"]
 
 
-REQUIRED_FIELDS = ("description", "deadline", "value", "recurrent")
-
-
 def validate_expense(data):
     if data is None:
         return "Request body is required"
-    for field in REQUIRED_FIELDS:
+    for field in ("description", "deadline", "value", "recurrent"):
         if field not in data:
             return f"Missing required field: {field}"
     try:
