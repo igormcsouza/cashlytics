@@ -1,0 +1,85 @@
+"""API tests for the FastAPI backend (Step 2), DynamoDB mocked with moto."""
+
+
+def test_health_route(client):
+    res = client.get("/")
+    assert res.status_code == 200
+    assert res.json()["status"] == "ok"
+
+
+def test_list_empty(client):
+    res = client.get("/expenses")
+    assert res.status_code == 200
+    assert res.json() == []
+
+
+def test_list_populated(client, sample_expense):
+    client.post("/expenses", json=sample_expense)
+    res = client.get("/expenses")
+    assert res.status_code == 200
+    body = res.json()
+    assert len(body) == 1
+    assert body[0]["description"] == sample_expense["description"]
+    assert "id" in body[0]
+    assert "_id" not in body[0]
+
+
+def test_create_success(client, sample_expense):
+    res = client.post("/expenses", json=sample_expense)
+    assert res.status_code == 201
+    body = res.json()
+    assert body["description"] == sample_expense["description"]
+    assert body["value"] == sample_expense["value"]
+    assert body["recurrent"] is True
+    assert isinstance(body["id"], str) and body["id"]
+
+
+def test_create_roundtrips_through_dynamodb(client, sample_expense):
+    created = client.post("/expenses", json=sample_expense).json()
+    fetched = client.get("/expenses").json()[0]
+    assert fetched == created
+
+
+def test_create_generates_unique_ids(client, sample_expense):
+    first = client.post("/expenses", json=sample_expense).json()
+    second = client.post("/expenses", json=sample_expense).json()
+    assert first["id"] != second["id"]
+
+
+def test_create_validation_error(client):
+    res = client.post("/expenses", json={"description": "missing fields"})
+    assert res.status_code == 422
+
+
+def test_create_value_not_a_number(client, sample_expense):
+    bad = {**sample_expense, "value": "not-a-number"}
+    res = client.post("/expenses", json=bad)
+    assert res.status_code == 422
+
+
+def test_update_success(client, sample_expense):
+    created = client.post("/expenses", json=sample_expense).json()
+    updated = {**sample_expense, "description": "Updated", "value": 99.0}
+    res = client.put(f"/expenses/{created['id']}", json=updated)
+    assert res.status_code == 200
+    body = res.json()
+    assert body["description"] == "Updated"
+    assert body["value"] == 99.0
+    assert body["id"] == created["id"]
+
+
+def test_update_not_found(client, sample_expense):
+    res = client.put("/expenses/does-not-exist", json=sample_expense)
+    assert res.status_code == 404
+
+
+def test_delete_success(client, sample_expense):
+    created = client.post("/expenses", json=sample_expense).json()
+    res = client.delete(f"/expenses/{created['id']}")
+    assert res.status_code == 204
+    assert client.get("/expenses").json() == []
+
+
+def test_delete_not_found(client):
+    res = client.delete("/expenses/does-not-exist")
+    assert res.status_code == 404

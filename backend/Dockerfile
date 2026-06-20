@@ -1,12 +1,20 @@
-FROM python:3.12-slim
+# Lambda-ready image for the Cashlytics backend.
+# Runs identically locally (via the Lambda Runtime Interface Emulator / SAM) and
+# in AWS Lambda; behavior is driven entirely by environment variables.
+FROM public.ecr.aws/lambda/python:3.12
 
-WORKDIR /app
+# Bring in uv to resolve/install the uv-managed dependencies.
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+WORKDIR ${LAMBDA_TASK_ROOT}
 
-COPY . .
+# Install runtime-only dependencies (no dev/test, no caches) into the task root.
+COPY pyproject.toml uv.lock ./
+RUN uv export --frozen --no-dev --no-emit-project -o requirements.txt \
+    && uv pip install --no-cache -r requirements.txt --target "${LAMBDA_TASK_ROOT}" \
+    && rm requirements.txt
 
-EXPOSE 5000
+# Copy the application code (same app object used locally and in tests).
+COPY . ${LAMBDA_TASK_ROOT}
 
-CMD ["python", "app.py"]
+CMD ["lambda_function.handler"]
