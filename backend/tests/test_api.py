@@ -73,6 +73,30 @@ def test_update_not_found(client, sample_expense):
     assert res.status_code == 404
 
 
+def test_create_defaults_paid_to_false(client, sample_expense):
+    res = client.post("/expenses", json=sample_expense)
+    assert res.status_code == 201
+    assert res.json()["paid"] is False
+
+
+def test_update_marks_paid_and_persists(client, sample_expense):
+    created = client.post("/expenses", json=sample_expense).json()
+    res = client.put(f"/expenses/{created['id']}", json={**sample_expense, "paid": True})
+    assert res.status_code == 200
+    assert res.json()["paid"] is True
+    # The paid flag survives a round-trip through DynamoDB.
+    assert client.get("/expenses").json()[0]["paid"] is True
+
+
+def test_update_toggles_paid_back_to_false(client, sample_expense):
+    created = client.post("/expenses", json={**sample_expense, "paid": True}).json()
+    res = client.put(
+        f"/expenses/{created['id']}", json={**sample_expense, "paid": False}
+    )
+    assert res.status_code == 200
+    assert res.json()["paid"] is False
+
+
 def test_delete_success(client, sample_expense):
     created = client.post("/expenses", json=sample_expense).json()
     res = client.delete(f"/expenses/{created['id']}")

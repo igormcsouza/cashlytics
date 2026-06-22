@@ -13,6 +13,7 @@ const EMPTY: ExpenseInput = {
   deadline: "",
   value: 0,
   recurrent: false,
+  paid: false,
 };
 
 export default function ExpenseModal({
@@ -25,8 +26,8 @@ export default function ExpenseModal({
 
   useEffect(() => {
     if (editing) {
-      const { description, deadline, value, recurrent } = editing;
-      setForm({ description, deadline, value, recurrent });
+      const { description, deadline, value, recurrent, paid } = editing;
+      setForm({ description, deadline, value, recurrent, paid });
     } else {
       setForm(EMPTY);
     }

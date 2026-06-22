@@ -16,3 +16,4 @@ class ExpenseIn(BaseModel):
     deadline: str
     value: float
     recurrent: bool
+    paid: bool = False

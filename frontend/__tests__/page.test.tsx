@@ -13,9 +13,10 @@ const EXPENSES: Expense[] = [
   {
     id: "1",
     description: "Rent",
-    deadline: "2026-07-01",
+    deadline: "2000-01-01",
     value: 1500,
     recurrent: true,
+    paid: false,
   },
   {
     id: "2",
@@ -23,6 +24,7 @@ const EXPENSES: Expense[] = [
     deadline: "2026-07-05",
     value: 4.5,
     recurrent: false,
+    paid: true,
   },
 ];
 
@@ -127,6 +129,47 @@ describe("Home", () => {
 
     expect(screen.queryByText("Delete Expense?")).not.toBeInTheDocument();
     expect(mocked.deleteExpense).not.toHaveBeenCalled();
+  });
+
+  it("marks an expense as paid", async () => {
+    const user = userEvent.setup();
+    render(<Home />);
+    await screen.findByText("Rent");
+
+    // Rent (id "1") is unpaid -> button is "Mark as paid".
+    const payButtons = screen.getAllByRole("button", { name: "Mark as paid" });
+    await user.click(payButtons[0]);
+
+    await waitFor(() => expect(mocked.updateExpense).toHaveBeenCalledTimes(1));
+    expect(mocked.updateExpense.mock.calls[0][0]).toBe("1");
+    expect(mocked.updateExpense.mock.calls[0][1]).toMatchObject({ paid: true });
+  });
+
+  it("colors rows by status (overdue red, paid green)", async () => {
+    render(<Home />);
+    const rentRow = (await screen.findByText("Rent")).closest("tr");
+    const coffeeRow = screen.getByText("Coffee").closest("tr");
+    // Rent is unpaid and past its deadline -> rose; Coffee is paid -> emerald.
+    expect(rentRow?.className).toContain("bg-rose-500/10");
+    expect(coffeeRow?.className).toContain("bg-emerald-500/10");
+  });
+
+  it("expands the total card to show the breakdown", async () => {
+    const user = userEvent.setup();
+    render(<Home />);
+    await screen.findByText("Rent");
+
+    expect(screen.queryByText("Already paid")).not.toBeInTheDocument();
+    await user.click(
+      screen.getByRole("button", { name: /toggle total breakdown/i }),
+    );
+
+    const paidRow = screen.getByText("Already paid").closest("div");
+    const dueRow = screen.getByText("Due").closest("div");
+    expect(screen.getByText("Remaining (not due)")).toBeInTheDocument();
+    // Coffee (4.50) is paid; Rent (1500) is overdue and unpaid.
+    expect(paidRow).toHaveTextContent("$4.50");
+    expect(dueRow).toHaveTextContent("$1500.00");
   });
 
   it("surfaces an error when loading fails", async () => {
