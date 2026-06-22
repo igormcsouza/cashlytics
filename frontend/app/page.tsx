@@ -144,7 +144,7 @@ export default function Home() {
           <span className="flex items-center gap-2 text-slate-300 font-medium">
             <span
               className={
-                "text-indigo-300 transition-transform " +
+                "inline-block text-indigo-300 transition-transform duration-200 " +
                 (showBreakdown ? "rotate-90" : "")
               }
             >

@@ -72,6 +72,9 @@ test("status colors, mark-as-paid, and total breakdown", async ({ page }) => {
   await expect(page.getByText("Remaining (not due)")).toBeVisible();
   await expect(page.getByText("Due", { exact: true })).toBeVisible();
 
+  // Let the caret's rotate transition settle before capturing.
+  await page.waitForTimeout(300);
+
   // Screenshot 3: expanded breakdown.
   await page.screenshot({
     path: `${SHOTS}/total-breakdown-expanded.png`,
