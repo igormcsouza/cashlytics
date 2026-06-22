@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <!-- tie / neck of the bag -->
+  <path d="M26 14 L38 14 L34 22 L30 22 Z" fill="#a16207"/>
+  <path d="M25 13 Q32 9 39 13 L37 16 Q32 13 27 16 Z" fill="#ca8a04"/>
+  <!-- bag body -->
+  <path d="M30 21 Q18 30 18 42 Q18 54 32 54 Q46 54 46 42 Q46 30 34 21 Z" fill="#facc15"/>
+  <path d="M30 21 Q22 28 20 38 Q24 33 32 33 Q40 33 44 38 Q42 28 34 21 Z" fill="#fde047"/>
+  <!-- dollar sign -->
+  <text x="32" y="48" font-family="Arial, sans-serif" font-size="22" font-weight="bold" fill="#854d0e" text-anchor="middle">$</text>
+</svg>

@@ -1,19 +1,54 @@
+# Local environment that mirrors production:
+#   - DynamoDB Local for storage
+#   - the backend as the Lambda container image (Step 3), run via the AWS Lambda
+#     Runtime Interface Emulator (RIE) that ships in the base image
+#   - a small API Gateway proxy that turns HTTP into Lambda events (what API
+#     Gateway / a function URL does in AWS), exposing a real REST endpoint
+#   - the Next.js frontend (optional, `ui` profile) pointed at that endpoint
+#
+# Everything is wired with the same env vars production uses. The only local-only
+# settings are credentials and the DynamoDB/Lambda endpoints.
 services:
-  mongo:
-    image: mongo:7
-    restart: unless-stopped
-    volumes:
-      - mongo_data:/data/db
+  dynamodb-local:
+    image: amazon/dynamodb-local:latest
+    command: ["-jar", "DynamoDBLocal.jar", "-inMemory", "-sharedDb"]
+    ports:
+      - "8000:8000"
 
   backend:
     build: ./backend
     restart: unless-stopped
     ports:
-      - "5000:5000"
+      - "9000:8080" # RIE invocations endpoint
     environment:
-      - MONGO_URI=mongodb://mongo:27017
+      - ENVIRONMENT=${ENVIRONMENT:-dev} # table name -> "<ENVIRONMENT>-expenses"
+      - AWS_REGION=${AWS_REGION:-us-east-1}
+      - DYNAMODB_ENDPOINT_URL=http://dynamodb-local:8000
+      # Dummy credentials so boto3 is happy against DynamoDB Local.
+      - AWS_ACCESS_KEY_ID=local
+      - AWS_SECRET_ACCESS_KEY=local
     depends_on:
-      - mongo
+      - dynamodb-local
 
-volumes:
-  mongo_data:
+  apigw:
+    build: ./local/apigw-proxy
+    restart: unless-stopped
+    ports:
+      - "5000:8080" # REST endpoint used by the frontend and smoke test
+    environment:
+      - LAMBDA_RIE_URL=http://backend:8080/2015-03-31/functions/function/invocations
+    depends_on:
+      - backend
+
+  frontend:
+    profiles: ["ui"]
+    build:
+      context: ./frontend
+      args:
+        # Browser-side calls go to the host-exposed proxy port.
+        - NEXT_PUBLIC_API_BASE_URL=http://localhost:5000
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    depends_on:
+      - apigw
