@@ -1,6 +1,8 @@
 import os
 
 import aws_cdk as cdk
+from aws_cdk import aws_cloudfront as cloudfront
+from aws_cdk import aws_cloudfront_origins as origins
 from aws_cdk import aws_lambda as lambda_
 from aws_cdk import aws_s3 as s3
 from aws_cdk import aws_s3_deployment as s3deploy
@@ -45,9 +47,9 @@ class FrontendStack(cdk.Stack):
         assets_dir = os.path.join(open_next_dir, "assets")
 
         # Phase-1 deploys (DB + backend only) synthesise this stack before the
-        # OpenNext build exists, so fall back to a placeholder so synthesis
-        # doesn't fail.  Phase-3 deletes cdk.out before re-deploying, which
-        # forces a fresh synthesis where the real build is present.
+        # OpenNext build exists — fall back to placeholder so synthesis doesn't
+        # fail.  Phase-3 deletes cdk.out before re-deploying, forcing a fresh
+        # synthesis where the real build is present.
         if os.path.isdir(server_fn_dir):
             print(f"[FrontendStack] Using OpenNext build: {server_fn_dir}")
             fn_code: lambda_.Code = lambda_.Code.from_asset(server_fn_dir)
@@ -65,12 +67,13 @@ class FrontendStack(cdk.Stack):
             timeout=cdk.Duration.seconds(30),
             environment={
                 Config.ENV_API_BASE_URL: api_base_url,
+                # OpenNext reads BUCKET_NAME to locate ISR cache in S3.
+                "BUCKET_NAME": self.assets_bucket.bucket_name,
             },
         )
 
         self.assets_bucket.grant_read(fn)
 
-        # Upload OpenNext static assets to S3 when the build output exists.
         if os.path.isdir(assets_dir):
             s3deploy.BucketDeployment(
                 self,
@@ -83,5 +86,39 @@ class FrontendStack(cdk.Stack):
             auth_type=lambda_.FunctionUrlAuthType.NONE,
         )
 
-        cdk.CfnOutput(self, "FrontendUrl", value=self.function_url.url)
+        # CloudFront sits in front of both origins:
+        #   /_next/static/*  →  S3 (private bucket via OAC, long-lived cache)
+        #   everything else  →  Lambda Function URL (no cache, all methods)
+        #
+        # This is required because the S3 bucket is private; the browser cannot
+        # fetch /_next/static/* directly — only CloudFront can, via OAC.
+        s3_origin = origins.S3BucketOrigin.with_origin_access_control(
+            self.assets_bucket
+        )
+        lambda_origin = origins.FunctionUrlOrigin(self.function_url)
+
+        distribution = cloudfront.Distribution(
+            self,
+            "Distribution",
+            default_behavior=cloudfront.BehaviorOptions(
+                origin=lambda_origin,
+                viewer_protocol_policy=cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+                cache_policy=cloudfront.CachePolicy.CACHING_DISABLED,
+                allowed_methods=cloudfront.AllowedMethods.ALLOW_ALL,
+                origin_request_policy=cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
+            ),
+            additional_behaviors={
+                "/_next/static/*": cloudfront.BehaviorOptions(
+                    origin=s3_origin,
+                    viewer_protocol_policy=cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+                    cache_policy=cloudfront.CachePolicy.CACHING_OPTIMIZED,
+                ),
+            },
+        )
+
+        cdk.CfnOutput(
+            self,
+            "FrontendUrl",
+            value=f"https://{distribution.distribution_domain_name}",
+        )
         cdk.CfnOutput(self, "AssetsBucketName", value=self.assets_bucket.bucket_name)
