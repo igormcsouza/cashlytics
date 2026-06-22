@@ -44,11 +44,15 @@ class FrontendStack(cdk.Stack):
         server_fn_dir = os.path.join(open_next_dir, "server-function")
         assets_dir = os.path.join(open_next_dir, "assets")
 
-        # Use the real OpenNext build when it exists; fall back to a placeholder
-        # so `cdk synth` / partial deploys succeed before the frontend is built.
+        # Phase-1 deploys (DB + backend only) synthesise this stack before the
+        # OpenNext build exists, so fall back to a placeholder so synthesis
+        # doesn't fail.  Phase-3 deletes cdk.out before re-deploying, which
+        # forces a fresh synthesis where the real build is present.
         if os.path.isdir(server_fn_dir):
+            print(f"[FrontendStack] Using OpenNext build: {server_fn_dir}")
             fn_code: lambda_.Code = lambda_.Code.from_asset(server_fn_dir)
         else:
+            print(f"[FrontendStack] WARNING: OpenNext build not found at {server_fn_dir} — using placeholder")
             fn_code = lambda_.Code.from_inline(_PLACEHOLDER)
 
         fn = lambda_.Function(

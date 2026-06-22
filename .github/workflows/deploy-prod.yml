@@ -9,8 +9,13 @@ permissions:
   id-token: write
 
 jobs:
+  ci:
+    name: CI
+    uses: ./.github/workflows/ci.yml
+
   deploy:
     name: Deploy Production
+    needs: ci
     runs-on: ubuntu-latest
     environment:
       name: production
@@ -89,9 +94,21 @@ jobs:
           NEXT_PUBLIC_API_BASE_URL: ${{ steps.deploy-backend.outputs.backend_url }}
         run: npx open-next@latest build
 
+      - name: Verify OpenNext output
+        working-directory: frontend
+        run: |
+          if [ ! -d ".open-next/server-function" ]; then
+            echo "ERROR: OpenNext did not produce .open-next/server-function/"
+            echo "Contents of .open-next/ (if it exists):"
+            ls -la .open-next/ 2>/dev/null || echo "  .open-next/ does not exist"
+            exit 1
+          fi
+          echo "OpenNext output OK: $(du -sh .open-next/server-function | cut -f1) in server-function/"
+
       - name: Deploy frontend
         working-directory: infra
         run: |
+          rm -rf cdk.out
           cdk deploy \
             "CashlyticsFrontend-prod" \
             --require-approval never \
