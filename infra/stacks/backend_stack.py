@@ -41,6 +41,8 @@ class BackendStack(cdk.Stack):
             auth_type=lambda_.FunctionUrlAuthType.NONE,
             cors=lambda_.FunctionUrlCorsOptions(
                 allowed_origins=["*"],
+                allowed_methods=[lambda_.HttpMethod.ALL],
+                allowed_headers=["Content-Type", "Authorization"],
             ),
         )
 
