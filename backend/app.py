@@ -12,13 +12,13 @@ from fastapi import Depends, FastAPI, HTTPException, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 
 from database.models import Expense
-from database.repository import DynamoDBRepository
+from database.repository import DynamoDBRepository, table_name
 from models import ExpenseIn
 
 logging.basicConfig(level=os.environ.get("LOG_LEVEL", "INFO"))
 logger = logging.getLogger("cashlytics")
 
-EXPENSES_TABLE = os.environ.get("EXPENSES_TABLE", "expenses")
+EXPENSES_TABLE = table_name("expenses")
 
 app = FastAPI(title="Cashlytics API")
 

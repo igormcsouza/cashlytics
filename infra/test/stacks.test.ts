@@ -2,8 +2,10 @@ import * as cdk from "aws-cdk-lib";
 import { Match, Template } from "aws-cdk-lib/assertions";
 import { beforeAll, describe, expect, it } from "vitest";
 import { BackendStack } from "../lib/backend-stack";
-import { config } from "../lib/config";
+import { config, expensesTableName } from "../lib/config";
 import { DatabaseStack } from "../lib/database-stack";
+
+const TEST_ENV = "test";
 import { FrontendStack } from "../lib/frontend-stack";
 
 describe("DatabaseStack", () => {
@@ -11,13 +13,15 @@ describe("DatabaseStack", () => {
 
   beforeAll(() => {
     const app = new cdk.App();
-    const stack = new DatabaseStack(app, "TestDatabase");
+    const stack = new DatabaseStack(app, "TestDatabase", {
+      environment: TEST_ENV,
+    });
     template = Template.fromStack(stack);
   });
 
   it("defines a DynamoDB table with an `id` string partition key", () => {
     template.hasResourceProperties("AWS::DynamoDB::Table", {
-      TableName: config.expensesTableName,
+      TableName: expensesTableName(TEST_ENV),
       KeySchema: [{ AttributeName: "id", KeyType: "HASH" }],
       AttributeDefinitions: Match.arrayWith([
         { AttributeName: "id", AttributeType: "S" },
@@ -31,20 +35,22 @@ describe("BackendStack", () => {
 
   beforeAll(() => {
     const app = new cdk.App();
-    const database = new DatabaseStack(app, "TestDatabase");
+    const database = new DatabaseStack(app, "TestDatabase", {
+      environment: TEST_ENV,
+    });
     const backend = new BackendStack(app, "TestBackend", {
       table: database.table,
+      environment: TEST_ENV,
     });
     template = Template.fromStack(backend);
   });
 
-  it("defines a container-image Lambda with the EXPENSES_TABLE env var", () => {
+  it("defines a container-image Lambda with the ENVIRONMENT env var", () => {
     template.hasResourceProperties("AWS::Lambda::Function", {
       PackageType: "Image",
       Environment: {
         Variables: Match.objectLike({
-          // Value is a cross-stack reference to the table name.
-          [config.envExpensesTable]: Match.anyValue(),
+          [config.envEnvironment]: TEST_ENV,
         }),
       },
     });

@@ -7,6 +7,7 @@ import { config } from "./config";
 
 interface BackendStackProps extends cdk.StackProps {
   table: dynamodb.Table;
+  environment: string;
 }
 
 /**
@@ -31,7 +32,7 @@ export class BackendStack extends cdk.Stack {
       memorySize: 512,
       timeout: cdk.Duration.seconds(30),
       environment: {
-        [config.envExpensesTable]: props.table.tableName,
+        [config.envEnvironment]: props.environment,
       },
     });
 

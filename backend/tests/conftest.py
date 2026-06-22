@@ -5,7 +5,7 @@ import pytest
 from fastapi.testclient import TestClient
 from moto import mock_aws
 
-TABLE_NAME = "expenses-test"
+TABLE_NAME = "test-expenses"
 
 
 @pytest.fixture(autouse=True)
@@ -14,7 +14,8 @@ def aws_credentials(monkeypatch):
     monkeypatch.setenv("AWS_ACCESS_KEY_ID", "testing")
     monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "testing")
     monkeypatch.setenv("AWS_REGION", "us-east-1")
-    monkeypatch.setenv("EXPENSES_TABLE", TABLE_NAME)
+    # app/bootstrap compose "<ENVIRONMENT>-expenses"; "test" -> "test-expenses".
+    monkeypatch.setenv("ENVIRONMENT", "test")
     # Ensure no leftover endpoint override points us at DynamoDB Local.
     monkeypatch.delenv("DYNAMODB_ENDPOINT_URL", raising=False)
 
