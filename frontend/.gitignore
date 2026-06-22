@@ -6,3 +6,10 @@
 *.tsbuildinfo
 next-env.d.ts
 /coverage
+
+# Playwright (generated artifacts, not committed)
+/test-results
+/playwright-report
+/playwright/.cache
+/.last-run.json
+/e2e/screenshots

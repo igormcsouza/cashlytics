@@ -1,20 +1,35 @@
 import type { Expense } from "@/lib/types";
+import { expenseStatus } from "@/lib/status";
 
 interface Props {
   expenses: Expense[];
   onEdit: (expense: Expense) => void;
   onDelete: (expense: Expense) => void;
+  onTogglePaid: (expense: Expense) => void;
 }
 
-export default function ExpenseTable({ expenses, onEdit, onDelete }: Props) {
+// Soft, low-opacity row tints per status so the table stays easy on the eyes.
+const ROW_CLASS: Record<string, string> = {
+  paid: "bg-emerald-500/10 hover:bg-emerald-500/15",
+  overdue: "bg-rose-500/10 hover:bg-rose-500/15",
+  "due-today": "bg-amber-500/10 hover:bg-amber-500/15",
+  upcoming: "hover:bg-slate-800/70",
+};
+
+export default function ExpenseTable({
+  expenses,
+  onEdit,
+  onDelete,
+  onTogglePaid,
+}: Props) {
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-lg shadow-xl shadow-black/20 overflow-x-auto">
       <table className="min-w-full text-sm">
         <thead className="bg-slate-800 text-indigo-200 uppercase text-xs font-semibold">
           <tr>
-            <th className="px-4 py-3 text-left">Description</th>
-            <th className="px-4 py-3 text-left">Deadline</th>
-            <th className="px-4 py-3 text-right">Value</th>
+            <th className="px-4 py-3 text-center">Description</th>
+            <th className="px-4 py-3 text-center">Deadline</th>
+            <th className="px-4 py-3 text-center">Value</th>
             <th className="px-4 py-3 text-center">Recurrent</th>
             <th className="px-4 py-3 text-center">Actions</th>
           </tr>
@@ -33,11 +48,14 @@ export default function ExpenseTable({ expenses, onEdit, onDelete }: Props) {
             expenses.map((expense) => (
               <tr
                 key={expense.id}
-                className="border-t border-slate-800 hover:bg-slate-800/70 transition"
+                className={
+                  "border-t border-slate-800 transition " +
+                  ROW_CLASS[expenseStatus(expense)]
+                }
               >
-                <td className="px-4 py-3">{expense.description}</td>
-                <td className="px-4 py-3">{expense.deadline}</td>
-                <td className="px-4 py-3 text-right">
+                <td className="px-4 py-3 text-center">{expense.description}</td>
+                <td className="px-4 py-3 text-center">{expense.deadline}</td>
+                <td className="px-4 py-3 text-center">
                   ${expense.value.toFixed(2)}
                 </td>
                 <td className="px-4 py-3 text-center">
@@ -53,6 +71,21 @@ export default function ExpenseTable({ expenses, onEdit, onDelete }: Props) {
                   </span>
                 </td>
                 <td className="px-4 py-3 text-center space-x-2">
+                  <button
+                    onClick={() => onTogglePaid(expense)}
+                    className={
+                      "inline-flex h-8 w-8 items-center justify-center text-white rounded text-sm font-medium " +
+                      (expense.paid
+                        ? "bg-slate-600 hover:bg-slate-500"
+                        : "bg-emerald-600 hover:bg-emerald-500")
+                    }
+                    title={expense.paid ? "Mark as unpaid" : "Mark as paid"}
+                    aria-label={
+                      expense.paid ? "Mark as unpaid" : "Mark as paid"
+                    }
+                  >
+                    {expense.paid ? "↩️" : "✅"}
+                  </button>
                   <button
                     onClick={() => onEdit(expense)}
                     className="inline-flex h-8 w-8 items-center justify-center bg-blue-700 hover:bg-blue-600 text-white rounded text-sm font-medium"
