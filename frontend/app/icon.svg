@@ -1,5 +1,4 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
-  <rect width="64" height="64" rx="12" fill="#0f172a"/>
   <!-- tie / neck of the bag -->
   <path d="M26 14 L38 14 L34 22 L30 22 Z" fill="#a16207"/>
   <path d="M25 13 Q32 9 39 13 L37 16 Q32 13 27 16 Z" fill="#ca8a04"/>
