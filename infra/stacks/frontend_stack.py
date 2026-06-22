@@ -41,7 +41,7 @@ class FrontendStack(cdk.Stack):
         open_next_dir = os.path.abspath(
             os.path.join(os.path.dirname(__file__), "..", "..", "frontend", ".open-next")
         )
-        server_fn_dir = os.path.join(open_next_dir, "server-function")
+        server_fn_dir = os.path.join(open_next_dir, "server-functions", "default")
         assets_dir = os.path.join(open_next_dir, "assets")
 
         # Phase-1 deploys (DB + backend only) synthesise this stack before the
