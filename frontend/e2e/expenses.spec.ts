@@ -49,33 +49,26 @@ test("status colors, mark-as-paid, and total breakdown", async ({ page }) => {
   const paidRow = page.locator("tr", { hasText: "Rent (paid)" });
   const upcomingRow = page.locator("tr", { hasText: "Gym (upcoming)" });
 
-  // Soft status tints applied to the right rows.
   await expect(overdueRow).toHaveClass(/bg-rose-500\/10/);
   await expect(dueTodayRow).toHaveClass(/bg-amber-500\/10/);
   await expect(paidRow).toHaveClass(/bg-emerald-500\/10/);
-
-  // Screenshot 1: the colored table.
   await page.screenshot({ path: `${SHOTS}/table-status-colors.png`, fullPage: true });
 
-  // Mark the upcoming "Gym" expense as paid -> its row turns green.
+  // Marking an unpaid expense paid turns its row green.
   await upcomingRow.getByRole("button", { name: "Mark as paid" }).click();
   await expect(
     page.locator("tr", { hasText: "Gym (upcoming)" }),
   ).toHaveClass(/bg-emerald-500\/10/);
-
-  // Screenshot 2: after marking paid.
   await page.screenshot({ path: `${SHOTS}/marked-paid.png`, fullPage: true });
 
-  // Expand the total card and verify the breakdown appears.
+  // Expanding the total card reveals the paid / not-due / due breakdown.
   await page.getByRole("button", { name: /toggle total breakdown/i }).click();
   await expect(page.getByText("Already paid")).toBeVisible();
   await expect(page.getByText("Remaining (not due)")).toBeVisible();
   await expect(page.getByText("Due", { exact: true })).toBeVisible();
 
-  // Let the caret's rotate transition settle before capturing.
+  // Wait for the caret's rotate transition to settle before capturing.
   await page.waitForTimeout(300);
-
-  // Screenshot 3: expanded breakdown.
   await page.screenshot({
     path: `${SHOTS}/total-breakdown-expanded.png`,
     fullPage: true,

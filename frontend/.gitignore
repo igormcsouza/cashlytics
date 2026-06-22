@@ -7,8 +7,9 @@
 next-env.d.ts
 /coverage
 
-# Playwright (generated reports/results; committed screenshots live in e2e/screenshots)
+# Playwright (generated artifacts, not committed)
 /test-results
 /playwright-report
 /playwright/.cache
 /.last-run.json
+/e2e/screenshots
