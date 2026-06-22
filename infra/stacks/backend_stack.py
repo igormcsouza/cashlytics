@@ -39,11 +39,6 @@ class BackendStack(cdk.Stack):
 
         self.function_url = fn.add_function_url(
             auth_type=lambda_.FunctionUrlAuthType.NONE,
-            cors=lambda_.FunctionUrlCorsOptions(
-                allowed_origins=["*"],
-                allowed_methods=[lambda_.HttpMethod.ALL],
-                allowed_headers=["Content-Type", "Authorization"],
-            ),
         )
 
         cdk.CfnOutput(self, "BackendUrl", value=self.function_url.url)
