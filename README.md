@@ -137,23 +137,43 @@ Environment variable:
 - `NEXT_PUBLIC_API_BASE_URL` — base URL of the backend API (dev: the local
   backend; prod: the Lambda / API Gateway URL).
 
-## Infrastructure (AWS CDK)
+## Infrastructure (AWS CDK — Python)
 
-Infrastructure is defined as code with the AWS CDK (TypeScript) in `infra/`:
+Infrastructure is defined as code with the AWS CDK (Python) in `infra/`.
+Stacks are suffixed with the deployment environment (`dev` or `prod`):
 
-- `CashlyticsDatabase` — the DynamoDB expenses table (`id` partition key)
-- `CashlyticsBackend` — the backend Lambda (container image, `lambda_function.handler`)
-  behind a function URL, granted least-privilege read/write on the table
-- `CashlyticsFrontend` — the Next.js SSR Lambda + an S3 bucket for static assets
+- `CashlyticsDatabase-{env}` — DynamoDB expenses table (`id` partition key)
+- `CashlyticsBackend-{env}` — backend Lambda (container image) behind a
+  function URL; granted least-privilege read/write on the table
+- `CashlyticsFrontend-{env}` — Next.js SSR Lambda (via OpenNext) + S3 bucket
+  for static assets, served through a CloudFront distribution:
 
-Resource names and env var keys live in `infra/lib/config.ts` and match the
-application code.
+```
+Browser → CloudFront
+              ├── /_next/static/*  → S3 (JS/CSS, long-lived cache)
+              └── everything else  → Lambda Function URL (SSR)
+```
+
+Resource names and env var keys live in `infra/stacks/config.py`.
 
 ```bash
 cd infra
-npm install
+pip install -r requirements.txt
 
-npm test          # CDK assertion tests (Vitest + aws-cdk-lib/assertions)
-npx cdk synth     # synthesize CloudFormation for all stacks
-npx cdk deploy --all   # deploy (requires AWS credentials + `cdk bootstrap`)
+cdk synth                        # synthesize CloudFormation for all stacks
+cdk deploy --all -c environment=dev   # deploy dev (requires cdk bootstrap)
+cdk deploy --all -c environment=prod  # deploy prod
 ```
+
+## CI / CD
+
+Two GitHub Actions workflows handle deployments automatically:
+
+- **`deploy-dev.yml`** — triggers on every PR opened/updated against `main`:
+  runs CI (backend + frontend tests), then deploys the `dev` stacks and posts
+  the CloudFront and API URLs as a PR comment.
+- **`deploy-prod.yml`** — triggers on merge to `main`: runs CI, then deploys
+  the `prod` stacks and sets the GitHub *production* environment URL.
+
+Required GitHub Actions secrets: `AWS_ACCOUNT_ID`, `AWS_REGION`,
+`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`.
