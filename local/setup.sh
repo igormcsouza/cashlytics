@@ -10,7 +10,7 @@ for _ in $(seq 1 60); do
 done
 
 echo "Creating the expenses table (idempotent) ..."
-docker compose exec -T backend python -m database.bootstrap
+docker compose exec -T backend python -m src.core.bootstrap
 
 echo "Waiting for cognito-local on :9229 ..."
 for _ in $(seq 1 60); do
@@ -19,7 +19,7 @@ for _ in $(seq 1 60); do
 done
 
 echo "Creating the Cognito user pool, admin group, and dev admins (idempotent) ..."
-docker compose exec -T backend python -m auth_bootstrap
+docker compose exec -T backend python -m src.auth.bootstrap
 
 echo "Waiting for the backend via the API gateway proxy on :5000 ..."
 for _ in $(seq 1 60); do

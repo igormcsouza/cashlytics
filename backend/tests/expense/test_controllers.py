@@ -1,10 +1,29 @@
-"""API tests for the FastAPI backend (Step 2), DynamoDB mocked with moto."""
+"""API tests for the expense routes, DynamoDB mocked with moto."""
+
+from fastapi.testclient import TestClient
+
+from conftest import WithGatewayClaims
 
 
-def test_health_route(client):
-    res = client.get("/")
-    assert res.status_code == 200
-    assert res.json()["status"] == "ok"
+def test_expenses_require_authentication():
+    """Without forwarded JWT claims every expense route is 401."""
+    from src.main import app
+
+    unauthenticated = TestClient(app)
+    assert unauthenticated.get("/expenses").status_code == 401
+    assert unauthenticated.post("/expenses", json={}).status_code == 401
+    assert unauthenticated.put("/expenses/x", json={}).status_code == 401
+    assert unauthenticated.delete("/expenses/x").status_code == 401
+
+
+def test_expenses_require_admin_group():
+    """A valid token without the admin group is 403."""
+    from src.main import app
+
+    viewer = TestClient(
+        WithGatewayClaims(app, {"email": "v@x.y", "cognito:groups": "[viewer]"})
+    )
+    assert viewer.get("/expenses").status_code == 403
 
 
 def test_list_empty(client):

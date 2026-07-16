@@ -1,13 +1,15 @@
-"""Create the local Cognito user pool the app expects (mirrors database/bootstrap.py).
+"""Create the local Cognito user pool the app expects (mirrors src/core/bootstrap.py).
 
 Run against cognito-local in development:
 
-    AWS_REGION=us-east-1 COGNITO_ENDPOINT_URL=http://localhost:9229 \
-        uv run python -m auth_bootstrap
+    AWS_REGION=sa-east-1 COGNITO_ENDPOINT_URL=http://localhost:9229 \
+        uv run python -m src.auth.bootstrap
 
 Creates the "admin" group and two dev admin users with a permanent, well-known
 password so PR/local environments can log in immediately (mirrors what the
-deploy workflow does against the real Cognito user pool). Writes the
+deploy workflow does against the real Cognito user pool). The pool's password
+policy is relaxed (no complexity requirements) so the well-known dev password
+is accepted — the same policy CDK gives non-prod user pools. Writes the
 resulting pool/client ids to ``/local-shared/.cognito.env`` so the frontend
 build (which needs them baked in at build time, like NEXT_PUBLIC_API_BASE_URL)
 can pick them up.
@@ -17,7 +19,7 @@ import os
 
 import boto3
 
-from auth import ADMIN_GROUP
+from src.auth.service import ADMIN_GROUP
 
 POOL_NAME = "cashlytics-local"
 CLIENT_NAME = "WebClient"
@@ -25,19 +27,30 @@ ADMIN_EMAILS = ["admin@cashlytics.dev", "admin2@cashlytics.dev"]
 DEV_PASSWORD = "password"
 OUTPUT_FILE = "/local-shared/.cognito.env"
 
-REGION = os.environ.get("AWS_REGION", "us-east-1")
-ENDPOINT = os.environ.get("COGNITO_ENDPOINT_URL")
-
 
 def _client():
-    return boto3.client("cognito-idp", region_name=REGION, endpoint_url=ENDPOINT)
+    region = os.environ.get("AWS_REGION", "sa-east-1")
+    endpoint = os.environ.get("COGNITO_ENDPOINT_URL")
+    return boto3.client("cognito-idp", region_name=region, endpoint_url=endpoint)
 
 
 def _get_or_create_pool(client) -> str:
     for pool in client.list_user_pools(MaxResults=60)["UserPools"]:
         if pool["Name"] == POOL_NAME:
             return pool["Id"]
-    return client.create_user_pool(PoolName=POOL_NAME)["UserPool"]["Id"]
+    created = client.create_user_pool(
+        PoolName=POOL_NAME,
+        Policies={
+            "PasswordPolicy": {
+                "MinimumLength": 8,
+                "RequireUppercase": False,
+                "RequireLowercase": False,
+                "RequireNumbers": False,
+                "RequireSymbols": False,
+            }
+        },
+    )
+    return created["UserPool"]["Id"]
 
 
 def _get_or_create_client(client, pool_id: str) -> str:
@@ -81,21 +94,28 @@ def _ensure_admin(client, pool_id: str, email: str) -> None:
     )
 
 
-def main() -> None:
+def bootstrap() -> tuple[str, str]:
+    """Ensure the pool/client/admins exist; return (pool_id, client_id)."""
     client = _client()
     pool_id = _get_or_create_pool(client)
     client_id = _get_or_create_client(client, pool_id)
     _ensure_group(client, pool_id)
     for email in ADMIN_EMAILS:
         _ensure_admin(client, pool_id, email)
+    return pool_id, client_id
+
+
+def main() -> None:
+    pool_id, client_id = bootstrap()
+    region = os.environ.get("AWS_REGION", "sa-east-1")
 
     with open(OUTPUT_FILE, "w") as f:
         f.write(f"NEXT_PUBLIC_COGNITO_CLIENT_ID={client_id}\n")
-        f.write(f"NEXT_PUBLIC_COGNITO_REGION={REGION}\n")
+        f.write(f"NEXT_PUBLIC_COGNITO_REGION={region}\n")
 
     print(f"Cognito ready: pool={pool_id} client={client_id}")
     print(f"Dev admins: {', '.join(ADMIN_EMAILS)} / password: {DEV_PASSWORD}")
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     main()

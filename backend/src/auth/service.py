@@ -1,6 +1,6 @@
-"""Authorization for the Cashlytics API.
+"""Authorization for the auth domain.
 
-Token validation happens before the request reaches this app: in AWS the API
+Token validation happens before a request reaches this app: in AWS the API
 Gateway Cognito JWT authorizer rejects unauthenticated requests, and locally
 the API gateway proxy (local/apigw-proxy) plays the same role against
 cognito-local. This module only *trusts* the claims the authorizer forwards in

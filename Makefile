@@ -17,8 +17,8 @@ ui:
 
 ## Create/seed the DynamoDB table and the Cognito user pool (idempotent).
 seed:
-	docker compose exec -T backend python -m database.bootstrap
-	docker compose exec -T backend python -m auth_bootstrap
+	docker compose exec -T backend python -m src.core.bootstrap
+	docker compose exec -T backend python -m src.auth.bootstrap
 
 ## Run the end-to-end smoke test against the running stack.
 smoke:

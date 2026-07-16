@@ -1,6 +1,22 @@
 """Direct tests for the generic DynamoDB repository (moto-backed)."""
 
 
+class _PagingTable:
+    """Stub table whose scan paginates via LastEvaluatedKey."""
+
+    def __init__(self):
+        self.pages = [
+            {"Items": [{"id": "page-1"}], "LastEvaluatedKey": {"id": "page-1"}},
+            {"Items": [{"id": "page-2"}]},
+        ]
+        self.start_keys = []
+
+    def scan(self, **kwargs):
+        if "ExclusiveStartKey" in kwargs:
+            self.start_keys.append(kwargs["ExclusiveStartKey"])
+        return self.pages[len(self.start_keys)]
+
+
 def _item(**overrides):
     base = {
         "id": "abc-123",
@@ -56,3 +72,11 @@ def test_delete(repository):
 
 def test_delete_missing_returns_false(repository):
     assert repository.delete("nope") is False
+
+
+def test_list_follows_scan_pagination(repository):
+    table = _PagingTable()
+    repository.table = table
+    ids = [row["id"] for row in repository.list()]
+    assert ids == ["page-1", "page-2"]
+    assert table.start_keys == [{"id": "page-1"}]

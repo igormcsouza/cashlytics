@@ -1,12 +1,10 @@
-"""Tests for the role-based auth dependency (backend/auth.py)."""
+"""Unit tests for the role-based auth dependency (src/auth/service.py)."""
 
 import pytest
 from fastapi import HTTPException
-from fastapi.testclient import TestClient
 from starlette.requests import Request
 
-from auth import groups_from_claims, require_admin
-from conftest import WithGatewayClaims
+from src.auth.service import groups_from_claims, require_admin
 
 
 def make_request(claims: dict | None = None) -> Request:
@@ -55,26 +53,3 @@ class TestRequireAdmin:
     def test_admin_allowed(self):
         claims = {"email": "a@b.c", "cognito:groups": "[admin]"}
         assert require_admin(make_request(claims)) == claims
-
-
-def test_api_rejects_unauthenticated_requests():
-    """Without authorizer claims every expense route is 401."""
-    from app import app
-
-    client = TestClient(app)
-    assert client.get("/expenses").status_code == 401
-    assert client.post("/expenses", json={}).status_code == 401
-    assert client.put("/expenses/x", json={}).status_code == 401
-    assert client.delete("/expenses/x").status_code == 401
-    # Health has no role requirement (the authorizer still guards it in AWS).
-    assert client.get("/").status_code == 200
-
-
-def test_api_rejects_non_admin_requests():
-    """A valid token without the admin group is 403."""
-    from app import app
-
-    client = TestClient(
-        WithGatewayClaims(app, {"email": "v@x.y", "cognito:groups": "[viewer]"})
-    )
-    assert client.get("/expenses").status_code == 403

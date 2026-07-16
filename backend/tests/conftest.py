@@ -1,5 +1,3 @@
-import os
-
 import boto3
 import pytest
 from fastapi.testclient import TestClient
@@ -13,8 +11,8 @@ def aws_credentials(monkeypatch):
     """Dummy credentials so boto3/moto never touch real AWS."""
     monkeypatch.setenv("AWS_ACCESS_KEY_ID", "testing")
     monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "testing")
-    monkeypatch.setenv("AWS_REGION", "us-east-1")
-    # app/bootstrap compose "<ENVIRONMENT>-expenses"; "test" -> "test-expenses".
+    monkeypatch.setenv("AWS_REGION", "sa-east-1")
+    # bootstrap/repositories compose "<ENVIRONMENT>-expenses"; "test" -> "test-expenses".
     monkeypatch.setenv("ENVIRONMENT", "test")
     # Ensure no leftover endpoint override points us at DynamoDB Local.
     monkeypatch.delenv("DYNAMODB_ENDPOINT_URL", raising=False)
@@ -24,10 +22,10 @@ def aws_credentials(monkeypatch):
 def dynamodb_table(aws_credentials):
     with mock_aws():
         # Clear the cached boto3 resource so it binds to the moto mock.
-        from database import repository
+        from src.core import database
 
-        repository.get_resource.cache_clear()
-        resource = boto3.resource("dynamodb", region_name="us-east-1")
+        database.get_resource.cache_clear()
+        resource = boto3.resource("dynamodb", region_name="sa-east-1")
         resource.create_table(
             TableName=TABLE_NAME,
             KeySchema=[{"AttributeName": "id", "KeyType": "HASH"}],
@@ -36,12 +34,12 @@ def dynamodb_table(aws_credentials):
         )
         resource.Table(TABLE_NAME).wait_until_exists()
         yield resource.Table(TABLE_NAME)
-        repository.get_resource.cache_clear()
+        database.get_resource.cache_clear()
 
 
 @pytest.fixture
 def repository(dynamodb_table):
-    from database.repository import DynamoDBRepository
+    from src.shared.repository import DynamoDBRepository
 
     return DynamoDBRepository(TABLE_NAME)
 
@@ -74,7 +72,7 @@ class WithGatewayClaims:
 
 @pytest.fixture
 def client(dynamodb_table):
-    from app import app
+    from src.main import app
 
     with TestClient(WithGatewayClaims(app, ADMIN_CLAIMS)) as c:
         yield c
