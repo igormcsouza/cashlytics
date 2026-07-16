@@ -5,8 +5,8 @@ Run against cognito-local in development:
     AWS_REGION=sa-east-1 COGNITO_ENDPOINT_URL=http://localhost:9229 \
         uv run python -m src.auth.bootstrap
 
-Creates the "admin" group and two dev admin users with a permanent, well-known
-password so PR/local environments can log in immediately (mirrors what the
+Creates the "admin" group and a dev admin user with a permanent, well-known
+password so local environments can log in immediately (mirrors what the
 deploy workflow does against the real Cognito user pool). The pool's password
 policy is relaxed (no complexity requirements) so the well-known dev password
 is accepted — the same policy CDK gives non-prod user pools. Writes the
@@ -23,7 +23,7 @@ from src.auth.service import ADMIN_GROUP
 
 POOL_NAME = "cashlytics-local"
 CLIENT_NAME = "WebClient"
-ADMIN_EMAILS = ["admin@cashlytics.dev", "admin2@cashlytics.dev"]
+ADMIN_EMAILS = ["admin@cashlytics.dev"]
 DEV_PASSWORD = "password"
 OUTPUT_FILE = "/local-shared/.cognito.env"
 

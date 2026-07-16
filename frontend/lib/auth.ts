@@ -8,7 +8,7 @@
 // auth is disabled entirely: no login redirect, no Authorization header.
 
 const CLIENT_ID = process.env.NEXT_PUBLIC_COGNITO_CLIENT_ID ?? "";
-const REGION = process.env.NEXT_PUBLIC_COGNITO_REGION ?? "us-east-1";
+const REGION = process.env.NEXT_PUBLIC_COGNITO_REGION ?? "sa-east-1";
 // Overridden locally to point at cognito-local instead of real AWS.
 const ENDPOINT =
   process.env.NEXT_PUBLIC_COGNITO_ENDPOINT ??
