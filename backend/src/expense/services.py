@@ -6,6 +6,7 @@ production or an in-memory fake in tests.
 
 from src.expense.exceptions import ExpenseNotFoundError
 from src.expense.models import Expense, ExpenseIn
+from src.expense.repositories import expense_repository
 from src.shared.repository import Repository
 
 
@@ -31,3 +32,11 @@ class ExpenseService:
     def delete(self, expense_id: str) -> None:
         if not self.repository.delete(expense_id):
             raise ExpenseNotFoundError(expense_id)
+
+
+def get_service() -> ExpenseService:
+    """FastAPI dependency for the expense service.
+
+    Overridable in tests via ``app.dependency_overrides``.
+    """
+    return ExpenseService(expense_repository())

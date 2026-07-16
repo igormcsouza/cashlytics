@@ -8,18 +8,9 @@ from fastapi import APIRouter, Depends, HTTPException, Response, status
 
 from src.expense.exceptions import ExpenseNotFoundError
 from src.expense.models import ExpenseIn
-from src.expense.repositories import expense_repository
-from src.expense.services import ExpenseService
+from src.expense.services import ExpenseService, get_service
 
 router = APIRouter(prefix="/expenses", tags=["expenses"])
-
-
-def get_service() -> ExpenseService:
-    """FastAPI dependency for the expense service.
-
-    Overridable in tests via ``app.dependency_overrides``.
-    """
-    return ExpenseService(expense_repository())
 
 
 @router.get("")
