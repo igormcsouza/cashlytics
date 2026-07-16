@@ -11,7 +11,7 @@ def aws_credentials(monkeypatch):
     """Dummy credentials so boto3/moto never touch real AWS."""
     monkeypatch.setenv("AWS_ACCESS_KEY_ID", "testing")
     monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "testing")
-    monkeypatch.setenv("AWS_REGION", "us-east-1")
+    monkeypatch.setenv("AWS_REGION", "sa-east-1")
     # bootstrap/repositories compose "<ENVIRONMENT>-expenses"; "test" -> "test-expenses".
     monkeypatch.setenv("ENVIRONMENT", "test")
     # Ensure no leftover endpoint override points us at DynamoDB Local.
@@ -25,7 +25,7 @@ def dynamodb_table(aws_credentials):
         from src.core import database
 
         database.get_resource.cache_clear()
-        resource = boto3.resource("dynamodb", region_name="us-east-1")
+        resource = boto3.resource("dynamodb", region_name="sa-east-1")
         resource.create_table(
             TableName=TABLE_NAME,
             KeySchema=[{"AttributeName": "id", "KeyType": "HASH"}],

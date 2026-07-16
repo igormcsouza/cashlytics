@@ -22,7 +22,7 @@ services:
       - "9000:8080" # RIE invocations endpoint
     environment:
       - ENVIRONMENT=${ENVIRONMENT:-dev} # table name -> "<ENVIRONMENT>-expenses"
-      - AWS_REGION=${AWS_REGION:-us-east-1}
+      - AWS_REGION=${AWS_REGION:-sa-east-1}
       - DYNAMODB_ENDPOINT_URL=http://dynamodb-local:8000
       # Dummy credentials so boto3 is happy against DynamoDB Local.
       - AWS_ACCESS_KEY_ID=local

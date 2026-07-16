@@ -4,16 +4,26 @@ Everything is read from environment variables so the same code runs against
 DynamoDB Local in dev and real DynamoDB in AWS.
 
 Environment variables:
-    AWS_REGION             AWS region (default: us-east-1)
+    AWS_REGION             AWS region (default: sa-east-1)
     DYNAMODB_ENDPOINT_URL  Endpoint override for DynamoDB Local (unset in AWS)
     ENVIRONMENT            Deployment environment, prefixed to table names
                            (default: dev), e.g. ``prod`` -> ``prod-expenses``
+
+Values are read lazily (at call time, not import time) so tests and tooling can
+adjust the environment without re-importing modules.
 """
 
 import os
 
-AWS_REGION = os.environ.get("AWS_REGION", "us-east-1")
-DYNAMODB_ENDPOINT_URL = os.environ.get("DYNAMODB_ENDPOINT_URL")
+
+def aws_region() -> str:
+    """AWS region for all SDK clients (default: São Paulo)."""
+    return os.environ.get("AWS_REGION", "sa-east-1")
+
+
+def dynamodb_endpoint_url() -> str | None:
+    """DynamoDB endpoint override for DynamoDB Local; ``None`` in AWS."""
+    return os.environ.get("DYNAMODB_ENDPOINT_URL")
 
 
 def table_name(base: str) -> str:

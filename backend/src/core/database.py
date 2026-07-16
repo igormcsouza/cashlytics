@@ -4,14 +4,14 @@ from functools import lru_cache
 
 import boto3
 
-from src.core.config import AWS_REGION, DYNAMODB_ENDPOINT_URL
+from src.core.config import aws_region, dynamodb_endpoint_url
 
 
 @lru_cache(maxsize=1)
 def get_resource():
-    """DynamoDB resource, initialized once at module scope (cold-start friendly)."""
+    """DynamoDB resource, initialized once and cached (cold-start friendly)."""
     return boto3.resource(
         "dynamodb",
-        region_name=AWS_REGION,
-        endpoint_url=DYNAMODB_ENDPOINT_URL,
+        region_name=aws_region(),
+        endpoint_url=dynamodb_endpoint_url(),
     )
