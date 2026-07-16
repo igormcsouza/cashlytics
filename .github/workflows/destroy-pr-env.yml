@@ -1,0 +1,61 @@
+name: Destroy PR Environment
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: pr-env-${{ github.event.pull_request.number }}
+  cancel-in-progress: false # queue behind an in-flight deploy, never race it
+
+jobs:
+  destroy:
+    name: Destroy pr-${{ github.event.pull_request.number }}
+    runs-on: ubuntu-latest
+    environment: development
+    env:
+      ENV_NAME: pr-${{ github.event.pull_request.number }}
+
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      # Stack names are deterministic, so plain CloudFormation deletes are
+      # enough — no checkout, CDK synth, or frontend build required.
+      # Order matters: Frontend imports Backend exports, Backend imports
+      # Database exports, so delete Frontend -> Backend -> Database.
+      - name: Delete stacks (Frontend -> Backend -> Database)
+        run: |
+          set -euo pipefail
+          for STACK in "CashlyticsFrontend-${ENV_NAME}" \
+                       "CashlyticsBackend-${ENV_NAME}" \
+                       "CashlyticsDatabase-${ENV_NAME}"; do
+            if aws cloudformation describe-stacks --stack-name "$STACK" >/dev/null 2>&1; then
+              echo "Deleting $STACK..."
+              aws cloudformation delete-stack --stack-name "$STACK"
+              aws cloudformation wait stack-delete-complete --stack-name "$STACK"
+              echo "$STACK deleted."
+            else
+              echo "$STACK does not exist - skipping."
+            fi
+          done
+
+      - name: Comment on PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: 'Environment `pr-${{ github.event.pull_request.number }}` destroyed.',
+            });

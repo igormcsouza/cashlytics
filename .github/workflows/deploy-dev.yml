@@ -1,4 +1,4 @@
-name: Deploy to Development
+name: Deploy PR Environment
 
 on:
   pull_request:
@@ -10,18 +10,24 @@ permissions:
   pull-requests: write
   id-token: write
 
+concurrency:
+  group: pr-env-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
 jobs:
   ci:
     name: CI
     uses: ./.github/workflows/ci.yml
 
   deploy:
-    name: Deploy Dev
+    name: Deploy PR Environment
     needs: ci
     runs-on: ubuntu-latest
     environment:
       name: development
       url: ${{ steps.frontend-url.outputs.url }}
+    env:
+      ENV_NAME: pr-${{ github.event.pull_request.number }}
 
     steps:
       - name: Checkout
@@ -70,16 +76,16 @@ jobs:
         working-directory: infra
         run: |
           cdk deploy \
-            "CashlyticsDatabase-dev" "CashlyticsBackend-dev" \
+            "CashlyticsDatabase-${ENV_NAME}" "CashlyticsBackend-${ENV_NAME}" \
             --require-approval never \
-            -c environment=dev \
+            -c environment=${ENV_NAME} \
             --outputs-file cdk-backend-outputs.json
 
           BACKEND_URL=$(python3 - <<'PY'
-          import json, sys
+          import json, os
           with open("cdk-backend-outputs.json") as f:
               outputs = json.load(f)
-          stack = outputs.get("CashlyticsBackend-dev", {})
+          stack = outputs.get(f"CashlyticsBackend-{os.environ['ENV_NAME']}", {})
           url = next((v for v in stack.values() if v.startswith("https://")), "")
           print(url.rstrip("/"))
           PY
@@ -113,9 +119,9 @@ jobs:
         run: |
           rm -rf cdk.out
           cdk deploy \
-            "CashlyticsFrontend-dev" \
+            "CashlyticsFrontend-${ENV_NAME}" \
             --require-approval never \
-            -c environment=dev \
+            -c environment=${ENV_NAME} \
             --outputs-file cdk-frontend-outputs.json
 
       - name: Extract frontend URL
@@ -123,10 +129,10 @@ jobs:
         working-directory: infra
         run: |
           FRONTEND_URL=$(python3 - <<'PY'
-          import json
+          import json, os
           with open("cdk-frontend-outputs.json") as f:
               outputs = json.load(f)
-          stack = outputs.get("CashlyticsFrontend-dev", {})
+          stack = outputs.get(f"CashlyticsFrontend-{os.environ['ENV_NAME']}", {})
           url = next((v for v in stack.values() if v.startswith("https://")), "")
           print(url.rstrip("/"))
           PY
@@ -139,10 +145,13 @@ jobs:
           script: |
             const backendUrl  = '${{ steps.deploy-backend.outputs.backend_url }}';
             const frontendUrl = '${{ steps.frontend-url.outputs.url }}';
+            const envName     = 'pr-${{ github.event.pull_request.number }}';
             const sha         = context.sha.slice(0, 7);
 
             const body = [
-              '## Deploy: Dev deployment ready',
+              '## Deploy: PR environment ready',
+              '',
+              `Environment: \`${envName}\``,
               '',
               '| Service | URL |',
               '|---------|-----|',
@@ -159,7 +168,7 @@ jobs:
             });
 
             const existing = comments.find(
-              c => c.user.login === 'github-actions[bot]' && c.body.includes('Deploy: Dev deployment ready'),
+              c => c.user.login === 'github-actions[bot]' && c.body.includes('Deploy: PR environment ready'),
             );
 
             if (existing) {
