@@ -14,14 +14,19 @@ dependencies = [
 dev = [
     "pytest>=8.3",
     "pytest-cov>=6.0",
-    "httpx>=0.28",
     "moto[dynamodb]>=5.0",
+    "httpx2>=2.7.0",
 ]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
 testpaths = ["tests"]
 addopts = "--cov=src --cov=lambda_function --cov-report=term-missing --cov-fail-under=100"
+filterwarnings = [
+    # mangum (latest, 0.21.0) still calls asyncio.get_event_loop() in its
+    # adapter; nothing to fix on our side until upstream does.
+    "ignore:There is no current event loop:DeprecationWarning:mangum",
+]
 
 [tool.coverage.report]
 exclude_also = [
