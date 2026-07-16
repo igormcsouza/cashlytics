@@ -10,11 +10,18 @@ import {
   listExpenses,
   updateExpense,
 } from "@/lib/api";
-import { authEnabled, logout } from "@/lib/auth";
+import { authEnabled, getIdToken, logout } from "@/lib/auth";
 import type { Expense, ExpenseInput } from "@/lib/types";
 import { todayISO } from "@/lib/status";
 
 export default function Home() {
+  // Middleware only checks that an auth cookie exists, not that it's still
+  // valid, so a stale/expired session can slip through to this page. Hold off
+  // rendering real content until we've actually resolved a usable token (or
+  // given up and sent the browser to /login) — otherwise the table flashes
+  // for a moment before the redirect lands.
+  const [checkingAuth, setCheckingAuth] = useState(authEnabled);
+
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [error, setError] = useState<string | null>(null);
 
@@ -54,7 +61,19 @@ export default function Home() {
   }
 
   useEffect(() => {
-    refresh();
+    if (!authEnabled) {
+      refresh();
+      return;
+    }
+    (async () => {
+      const token = await getIdToken();
+      if (!token) {
+        window.location.href = "/login";
+        return;
+      }
+      setCheckingAuth(false);
+      await refresh();
+    })();
   }, []);
 
   function openCreate() {
@@ -114,6 +133,18 @@ export default function Home() {
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to delete expense.");
     }
+  }
+
+  if (checkingAuth) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="flex gap-2" role="status" aria-label="Loading">
+          <span className="w-3 h-3 rounded-full bg-indigo-400 animate-bounce [animation-delay:-0.3s]" />
+          <span className="w-3 h-3 rounded-full bg-indigo-400 animate-bounce [animation-delay:-0.15s]" />
+          <span className="w-3 h-3 rounded-full bg-indigo-400 animate-bounce" />
+        </div>
+      </div>
+    );
   }
 
   return (
