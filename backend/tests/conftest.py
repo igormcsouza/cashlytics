@@ -18,6 +18,9 @@ def aws_credentials(monkeypatch):
     monkeypatch.setenv("ENVIRONMENT", "test")
     # Ensure no leftover endpoint override points us at DynamoDB Local.
     monkeypatch.delenv("DYNAMODB_ENDPOINT_URL", raising=False)
+    # No API Gateway authorizer in tests — bypass auth like local dev does.
+    # tests/test_auth.py removes this to exercise the real dependency.
+    monkeypatch.setenv("AUTH_BYPASS", "true")
 
 
 @pytest.fixture

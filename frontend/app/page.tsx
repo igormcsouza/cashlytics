@@ -10,6 +10,7 @@ import {
   listExpenses,
   updateExpense,
 } from "@/lib/api";
+import { authEnabled, logout } from "@/lib/auth";
 import type { Expense, ExpenseInput } from "@/lib/types";
 import { todayISO } from "@/lib/status";
 
@@ -98,6 +99,11 @@ export default function Home() {
     }
   }
 
+  function handleLogout() {
+    logout();
+    window.location.href = "/login";
+  }
+
   async function handleDelete() {
     if (!deleting) return;
     try {
@@ -115,12 +121,38 @@ export default function Home() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-3xl font-bold text-indigo-300">💰 Cashlytics</h1>
-        <button
-          onClick={openCreate}
-          className="bg-indigo-500 hover:bg-indigo-400 text-white font-semibold px-4 py-2 rounded-lg shadow-lg shadow-indigo-950/40 flex items-center gap-2"
-        >
-          <span className="text-xl leading-none">+</span> Add Expense
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={openCreate}
+            className="bg-indigo-500 hover:bg-indigo-400 text-white font-semibold px-4 py-2 rounded-lg shadow-lg shadow-indigo-950/40 flex items-center gap-2"
+          >
+            <span className="text-xl leading-none">+</span> Add Expense
+          </button>
+          {authEnabled && (
+            <button
+              onClick={handleLogout}
+              aria-label="Log out"
+              title="Log out"
+              className="bg-indigo-500 hover:bg-indigo-400 text-white p-2.5 rounded-lg shadow-lg shadow-indigo-950/40"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="w-5 h-5"
+                aria-hidden="true"
+              >
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                <polyline points="16 17 21 12 16 7" />
+                <line x1="21" y1="12" x2="9" y2="12" />
+              </svg>
+            </button>
+          )}
+        </div>
       </div>
 
       {error && (

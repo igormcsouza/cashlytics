@@ -22,6 +22,8 @@ services:
       - "9000:8080" # RIE invocations endpoint
     environment:
       - ENVIRONMENT=${ENVIRONMENT:-dev} # table name -> "<ENVIRONMENT>-expenses"
+      # No API Gateway JWT authorizer locally — skip the auth dependency.
+      - AUTH_BYPASS=true
       - AWS_REGION=${AWS_REGION:-us-east-1}
       - DYNAMODB_ENDPOINT_URL=http://dynamodb-local:8000
       # Dummy credentials so boto3 is happy against DynamoDB Local.

@@ -143,8 +143,9 @@ Infrastructure is defined as code with the AWS CDK (Python) in `infra/`.
 Stacks are suffixed with the deployment environment (`dev` or `prod`):
 
 - `CashlyticsDatabase-{env}` — DynamoDB expenses table (`id` partition key)
-- `CashlyticsBackend-{env}` — backend Lambda (container image) behind a
-  function URL; granted least-privilege read/write on the table
+- `CashlyticsBackend-{env}` — backend Lambda (container image) behind an
+  API Gateway HTTP API protected by a Cognito JWT authorizer, plus the
+  Cognito user pool itself; granted least-privilege read/write on the table
 - `CashlyticsFrontend-{env}` — Next.js SSR Lambda (via OpenNext) + S3 bucket
   for static assets, served through a CloudFront distribution:
 
@@ -164,6 +165,52 @@ cdk synth                        # synthesize CloudFormation for all stacks
 cdk deploy --all -c environment=dev   # deploy dev (requires cdk bootstrap)
 cdk deploy --all -c environment=prod  # deploy prod
 ```
+
+## Authentication (Amazon Cognito)
+
+All access — UI and API — requires login. The pieces:
+
+- **Cognito user pool** (per environment, defined in `CashlyticsBackend-{env}`):
+  email + password sign-in only, self-sign-up disabled. Two administrator
+  users are created at deploy time and added to the `admin` group.
+- **API Gateway JWT authorizer**: every backend route rejects requests without
+  a valid Cognito token before they reach the Lambda. The FastAPI app then
+  trusts the claims API Gateway forwards (`backend/auth.py`) and enforces the
+  `admin` role — it never validates tokens itself.
+- **Frontend**: `middleware.ts` redirects to `/login` whenever the auth cookies
+  are missing; `lib/auth.ts` talks to Cognito directly (login, first-login
+  password change, silent token refresh) and `lib/api.ts` sends the id token as
+  a `Bearer` header. A logout icon button sits next to “+ Add Expense”.
+
+Admin users:
+
+- **Prod** — `igormcsouza@gmail.com` and `eilawoman@hotmail.com` by default
+  (override with the `ADMIN_EMAILS` repository variable, comma-separated, or
+  `-c admin_emails=...` when deploying manually). On the first deploy Cognito
+  emails each user a **temporary password**; the login page then asks them to
+  choose their own (`NEW_PASSWORD_REQUIRED` flow). Prod password policy:
+  12+ chars with upper/lower/digit/symbol.
+- **PR / dev environments** — `admin@cashlytics.dev` / `password` (plus
+  `admin2@cashlytics.dev`). The deploy workflow sets this as a permanent
+  password right after the backend deploy so reviewers can log in without any
+  email round-trip; the PR comment repeats the credentials.
+
+Useful operations (user pool id is in the `CashlyticsBackend-{env}` stack
+outputs):
+
+```bash
+# Re-send an expired invitation (temporary passwords last 7 days)
+aws cognito-idp admin-create-user --user-pool-id <POOL_ID> \
+  --username user@example.com --message-action RESEND
+
+# Reset a password manually
+aws cognito-idp admin-set-user-password --user-pool-id <POOL_ID> \
+  --username user@example.com --password '<NewPassword123!>' --permanent
+```
+
+Locally (docker-compose / tests) there is no Cognito: the backend runs with
+`AUTH_BYPASS=true` and the frontend disables auth entirely because
+`NEXT_PUBLIC_COGNITO_CLIENT_ID` is unset. Never set `AUTH_BYPASS` in AWS.
 
 ## CI / CD
 

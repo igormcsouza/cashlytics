@@ -11,6 +11,7 @@ import os
 from fastapi import Depends, FastAPI, HTTPException, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 
+from auth import require_admin
 from database.models import Expense
 from database.repository import DynamoDBRepository, table_name
 from models import ExpenseIn
@@ -50,12 +51,16 @@ def health() -> dict:
     return {"service": "cashlytics", "status": "ok"}
 
 
-@app.get("/expenses")
+@app.get("/expenses", dependencies=[Depends(require_admin)])
 def get_expenses(repo: DynamoDBRepository = Depends(get_repository)) -> list[dict]:
     return repo.list()
 
 
-@app.post("/expenses", status_code=status.HTTP_201_CREATED)
+@app.post(
+    "/expenses",
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_admin)],
+)
 def create_expense(
     expense: ExpenseIn, repo: DynamoDBRepository = Depends(get_repository)
 ) -> dict:
@@ -63,7 +68,7 @@ def create_expense(
     return repo.save(created.model_dump())
 
 
-@app.put("/expenses/{expense_id}")
+@app.put("/expenses/{expense_id}", dependencies=[Depends(require_admin)])
 def update_expense(
     expense_id: str,
     expense: ExpenseIn,
@@ -75,7 +80,11 @@ def update_expense(
     return repo.save(updated.model_dump())
 
 
-@app.delete("/expenses/{expense_id}", status_code=status.HTTP_204_NO_CONTENT)
+@app.delete(
+    "/expenses/{expense_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_admin)],
+)
 def delete_expense(
     expense_id: str, repo: DynamoDBRepository = Depends(get_repository)
 ) -> Response:
