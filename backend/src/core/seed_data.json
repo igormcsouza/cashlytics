@@ -1,0 +1,42 @@
+[
+  {
+    "id": "seed-0001",
+    "description": "Rent",
+    "deadline": "2026-08-01",
+    "value": 1800.0,
+    "recurrent": true,
+    "paid": false
+  },
+  {
+    "id": "seed-0002",
+    "description": "Electricity bill",
+    "deadline": "2026-07-25",
+    "value": 145.3,
+    "recurrent": true,
+    "paid": true
+  },
+  {
+    "id": "seed-0003",
+    "description": "Internet",
+    "deadline": "2026-07-28",
+    "value": 89.9,
+    "recurrent": true,
+    "paid": false
+  },
+  {
+    "id": "seed-0004",
+    "description": "Car insurance",
+    "deadline": "2026-08-10",
+    "value": 320.0,
+    "recurrent": false,
+    "paid": false
+  },
+  {
+    "id": "seed-0005",
+    "description": "Streaming subscriptions",
+    "deadline": "2026-07-20",
+    "value": 55.7,
+    "recurrent": true,
+    "paid": true
+  }
+]

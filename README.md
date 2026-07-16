@@ -80,8 +80,9 @@ cd backend
 uv sync
 
 # Point at DynamoDB Local for development, then create the table
+# (also seeds sample data from src/core/seed_data.json — dev/local envs only)
 export ENVIRONMENT=dev # table name -> "dev-expenses"
-export AWS_REGION=us-east-1
+export AWS_REGION=sa-east-1
 export DYNAMODB_ENDPOINT_URL=http://localhost:8000
 uv run python -m src.core.bootstrap
 
@@ -98,7 +99,7 @@ Configuration comes from environment variables:
 
 - `ENVIRONMENT` — deployment environment prefixed to table names (default
   `dev`), e.g. `prod` gives the table `prod-expenses`
-- `AWS_REGION` — AWS region (default `us-east-1`)
+- `AWS_REGION` — AWS region (default `sa-east-1`)
 - `DYNAMODB_ENDPOINT_URL` — endpoint override for DynamoDB Local in dev; leave
   **unset** in AWS so the SDK uses the real DynamoDB endpoint
 
@@ -117,7 +118,7 @@ docker build -t cashlytics-backend:lambda .
 # Invoke locally with the Lambda Runtime Interface Emulator
 docker run --rm -p 9000:8080 \
   -e ENVIRONMENT=dev \
-  -e AWS_REGION=us-east-1 \
+  -e AWS_REGION=sa-east-1 \
   -e DYNAMODB_ENDPOINT_URL=http://host.docker.internal:8000 \
   cashlytics-backend:lambda
 
