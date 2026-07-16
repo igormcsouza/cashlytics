@@ -8,8 +8,10 @@ their own packages (``src/expense``) and are included here.
 import logging
 import os
 
-from fastapi import FastAPI
+from botocore.exceptions import ClientError
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from src.expense.controllers import router as expense_router
 
@@ -30,13 +32,21 @@ app.add_middleware(
 app.include_router(expense_router)
 
 
+@app.exception_handler(ClientError)
+async def dynamodb_error_handler(request: Request, exc: ClientError) -> JSONResponse:
+    """Translate storage (boto3) failures into a 503 instead of a raw 500.
+
+    Applies to every route: any DynamoDB error raised by a repository — table
+    missing, throttling, credentials — is logged with its stack trace and
+    reported to the client without leaking AWS details.
+    """
+    logger.error("DynamoDB error on %s %s", request.method, request.url.path, exc_info=exc)
+    return JSONResponse(
+        status_code=503, content={"detail": "Storage temporarily unavailable"}
+    )
+
+
 @app.get("/")
 def health() -> dict:
     """Health/info route."""
     return {"service": "cashlytics", "status": "ok"}
-
-
-if __name__ == "__main__":  # pragma: no cover
-    import uvicorn
-
-    uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("PORT", "5000")))
