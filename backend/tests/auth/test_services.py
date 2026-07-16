@@ -1,10 +1,10 @@
-"""Unit tests for the role-based auth dependency (src/auth/service.py)."""
+"""Unit tests for the role-based auth dependency (src/auth/services.py)."""
 
 import pytest
 from fastapi import HTTPException
 from starlette.requests import Request
 
-from src.auth.service import groups_from_claims, require_admin
+from src.auth.services import groups_from_claims, require_admin
 
 
 def make_request(claims: dict | None = None) -> Request:

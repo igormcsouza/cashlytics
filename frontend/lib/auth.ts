@@ -24,6 +24,13 @@ export type LoginResult =
   // First login with a temporary password: Cognito requires a new one.
   | { status: "new_password_required"; session: string };
 
+// Thrown only when Cognito itself rejected the request (bad credentials, a
+// truly invalid/expired/revoked token). Distinguishes a real auth failure
+// from a network-level one (offline, timeout, DNS, transient 5xx) — the
+// fetch() call below throws a plain error for those instead, before a
+// response ever comes back.
+class CognitoError extends Error {}
+
 async function cognito(target: string, body: unknown): Promise<any> {
   const res = await fetch(ENDPOINT, {
     method: "POST",
@@ -37,13 +44,22 @@ async function cognito(target: string, body: unknown): Promise<any> {
   if (!res.ok) {
     const message =
       data.message ?? data.Message ?? "Authentication failed. Please try again.";
-    throw new Error(message);
+    throw new CognitoError(message);
   }
   return data;
 }
 
+// Browsers drop `Secure` cookies set from a non-HTTPS origin (localhost is
+// exempted as a special case, so this only matters for HTTP access via a LAN
+// IP or a non-TLS host) — only add it when the page is actually served over
+// HTTPS, so those origins can still log in instead of bouncing forever.
+const COOKIE_SECURITY = () =>
+  typeof location !== "undefined" && location.protocol === "https:"
+    ? "; secure"
+    : "";
+
 function setCookie(name: string, value: string, maxAgeSeconds: number) {
-  document.cookie = `${name}=${encodeURIComponent(value)}; path=/; max-age=${maxAgeSeconds}; samesite=lax; secure`;
+  document.cookie = `${name}=${encodeURIComponent(value)}; path=/; max-age=${maxAgeSeconds}; samesite=lax${COOKIE_SECURITY()}`;
 }
 
 function getCookie(name: string): string | null {
@@ -54,7 +70,7 @@ function getCookie(name: string): string | null {
 }
 
 function clearCookie(name: string) {
-  document.cookie = `${name}=; path=/; max-age=0; samesite=lax; secure`;
+  document.cookie = `${name}=; path=/; max-age=0; samesite=lax${COOKIE_SECURITY()}`;
 }
 
 function storeTokens(result: {
@@ -117,8 +133,12 @@ export async function getIdToken(): Promise<string | null> {
     });
     storeTokens(data.AuthenticationResult ?? {});
     return getCookie(ID_TOKEN_COOKIE);
-  } catch {
-    logout();
+  } catch (err) {
+    // Only a real Cognito rejection (invalid/expired/revoked refresh token)
+    // means the session is truly gone. A network-level failure (offline,
+    // timeout, transient 5xx) shouldn't clear a still-possibly-valid refresh
+    // token — leave it for the next attempt to retry.
+    if (err instanceof CognitoError) logout();
     return null;
   }
 }

@@ -19,7 +19,7 @@ import os
 
 import boto3
 
-from src.auth.service import ADMIN_GROUP
+from src.auth.services import ADMIN_GROUP
 
 POOL_NAME = "cashlytics-local"
 CLIENT_NAME = "WebClient"

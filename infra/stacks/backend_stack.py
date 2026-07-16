@@ -1,4 +1,5 @@
 import os
+import re
 
 import aws_cdk as cdk
 from aws_cdk import aws_apigatewayv2 as apigwv2
@@ -77,14 +78,22 @@ class BackendStack(cdk.Stack):
             description="Full access: see and update expenses.",
         )
 
-        # The two administrator users. In prod, Cognito emails each user a
+        # The administrator users. In prod, Cognito emails each user a
         # temporary password and the login page forces them to choose their own
         # (NEW_PASSWORD_REQUIRED). In non-prod the invitation is suppressed and
         # the deploy workflow sets the well-known dev password instead.
-        for index, email in enumerate(admin_emails, start=1):
+        #
+        # Construct ids are derived from the email itself, not its position in
+        # admin_emails: Cognito usernames are immutable, so a stable id keyed
+        # off the email keeps a reorder/insert/removal in the list from being
+        # seen by CloudFormation as "this logical resource's username changed"
+        # (which would attempt to replace an unrelated, already-provisioned
+        # admin user).
+        for email in admin_emails:
+            construct_id = re.sub(r"[^A-Za-z0-9]", "", email)
             user = cognito.CfnUserPoolUser(
                 self,
-                f"AdminUser{index}",
+                f"AdminUser{construct_id}",
                 user_pool_id=user_pool.user_pool_id,
                 username=email,
                 message_action=None if is_prod else "SUPPRESS",
@@ -100,7 +109,7 @@ class BackendStack(cdk.Stack):
             )
             attachment = cognito.CfnUserPoolUserToGroupAttachment(
                 self,
-                f"AdminUser{index}GroupAttachment",
+                f"AdminUser{construct_id}GroupAttachment",
                 user_pool_id=user_pool.user_pool_id,
                 group_name=Config.ADMIN_GROUP,
                 username=email,
@@ -127,9 +136,10 @@ class BackendStack(cdk.Stack):
         table.grant_read_write_data(fn)
 
         # --- HTTP API with Cognito JWT authorizer ------------------------
-        # Every route requires a valid Cognito JWT; the Lambda trusts the
-        # claims API Gateway forwards in the request context and never
-        # validates tokens itself.
+        # Every /expenses* route requires a valid Cognito JWT; the Lambda
+        # trusts the claims API Gateway forwards in the request context and
+        # never validates tokens itself. "/" (the health route) is
+        # deliberately left public — see below.
         authorizer = apigwv2_authorizers.HttpUserPoolAuthorizer(
             "CognitoAuthorizer",
             user_pool,
@@ -140,7 +150,6 @@ class BackendStack(cdk.Stack):
             self,
             "HttpApi",
             api_name=f"cashlytics-{environment}",
-            default_authorizer=authorizer,
             cors_preflight=apigwv2.CorsPreflightOptions(
                 allow_origins=["*"],
                 allow_headers=["Authorization", "Content-Type"],
@@ -160,24 +169,33 @@ class BackendStack(cdk.Stack):
         # requests fall through to API Gateway's built-in CORS auto-response
         # (configured above) instead of being matched by these routes and
         # sent through the JWT authorizer, which browsers never attach
-        # credentials to and would fail as a result.
+        # credentials to and would fail as a result. HEAD is included: it's a
+        # real client request (some health checks send it instead of GET to
+        # save bandwidth) that does carry credentials, unlike OPTIONS.
         route_methods = [
             apigwv2.HttpMethod.GET,
+            apigwv2.HttpMethod.HEAD,
             apigwv2.HttpMethod.POST,
             apigwv2.HttpMethod.PUT,
             apigwv2.HttpMethod.DELETE,
         ]
 
-        # "/{proxy+}" does not match the bare root path, so both are added.
+        # "/" only ever serves the health route (see src/main.py) — no
+        # default_authorizer is set on the API, so it's explicitly public
+        # here, letting external monitors/load balancers probe it without a
+        # token. Every other path goes through "/{proxy+}", explicitly
+        # authorized, which in practice is everything under /expenses.
         http_api.add_routes(
             path="/",
             methods=route_methods,
             integration=integration,
+            authorizer=apigwv2.HttpNoneAuthorizer(),
         )
         http_api.add_routes(
             path="/{proxy+}",
             methods=route_methods,
             integration=integration,
+            authorizer=authorizer,
         )
 
         self.http_api = http_api

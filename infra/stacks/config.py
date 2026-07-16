@@ -7,7 +7,9 @@ class Config:
     ENV_DYNAMO_ENDPOINT = "DYNAMODB_ENDPOINT_URL"
     ENV_API_BASE_URL = "NEXT_PUBLIC_API_BASE_URL"
 
-    # Cognito role with full access to the app.
+    # Cognito role with full access to the app. Must match ADMIN_GROUP in
+    # backend/src/auth/services.py — separate, independently-deployed Python
+    # projects, so this can't be a shared import; rename both or neither.
     ADMIN_GROUP = "admin"
     # Default admin users for non-prod environments; the deploy workflow sets
     # their password. Prod deploys override via `-c admin_emails=...`.

@@ -199,7 +199,7 @@ All access — UI and API — requires login. The pieces:
   users are created at deploy time and added to the `admin` group.
 - **API Gateway JWT authorizer**: every backend route rejects requests without
   a valid Cognito token before they reach the Lambda. The FastAPI app then
-  trusts the claims API Gateway forwards (`backend/src/auth/service.py`) and
+  trusts the claims API Gateway forwards (`backend/src/auth/services.py`) and
   enforces the `admin` role — it never validates tokens itself.
 - **Frontend**: `middleware.ts` redirects to `/login` whenever the auth cookies
   are missing; `lib/auth.ts` talks to Cognito directly (login, first-login

@@ -13,7 +13,14 @@ def test_health_route(client):
 
 
 def test_health_route_does_not_require_auth():
-    """Unlike /expenses, the health route has no require_admin dependency."""
+    """Unlike /expenses, the health route has no require_admin dependency.
+
+    This only proves the FastAPI app itself doesn't gate "/" — it says
+    nothing about API Gateway, which is a separate enforcement point. That
+    layer is exempted via HttpNoneAuthorizer on the "/" route in
+    infra/stacks/backend_stack.py; there's no test crossing both layers, so
+    keep them in sync by hand if either one changes.
+    """
     from src.main import app
 
     res = TestClient(app).get("/")

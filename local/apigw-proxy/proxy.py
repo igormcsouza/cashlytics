@@ -8,12 +8,13 @@ frontend and the smoke test a real REST endpoint backed by the production
 Lambda handler.
 
 It also emulates the Cognito JWT authorizer that protects the HTTP API in
-AWS: requests without a Bearer token (except CORS preflights) are rejected
-with 401, and the token's claims are forwarded to the Lambda in
-``requestContext.authorizer.jwt.claims`` — the exact shape the backend trusts
-in production. The token comes from cognito-local; only its expiry is checked
-here (signature verification is API Gateway's job in AWS, and this proxy is a
-dev-only tool that keeps to the standard library).
+AWS: requests without a Bearer token (except CORS preflights and "/", the
+public health route) are rejected with 401, and the token's claims are
+forwarded to the Lambda in ``requestContext.authorizer.jwt.claims`` — the
+exact shape the backend trusts in production. The token comes from
+cognito-local; only its expiry is checked here (signature verification is API
+Gateway's job in AWS, and this proxy is a dev-only tool that keeps to the
+standard library).
 
 Standard library only — no third-party dependencies.
 
@@ -52,7 +53,11 @@ def _decode_claims(headers) -> dict | None:
         return None
     if claims.get("exp") and claims["exp"] < time.time():
         return None
-    # The real authorizer flattens list claims into "[a b]" strings.
+    # The real authorizer flattens list claims into "[a b]" strings; mirror
+    # that exactly. Decoded by backend/src/auth/services.py's
+    # groups_from_claims, which is the actual source of truth for this
+    # format (it must match what AWS really sends) — keep this in sync with
+    # it if either side changes.
     return {
         key: f"[{' '.join(map(str, value))}]" if isinstance(value, list) else value
         for key, value in claims.items()
@@ -106,6 +111,13 @@ class Handler(BaseHTTPRequestHandler):
         self.send_response(401)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(payload)))
+        # The frontend and this proxy run on different ports (different
+        # origins) locally. Without these, a cross-origin fetch() call can't
+        # even read this response's status — the browser blocks it as a CORS
+        # violation and the promise rejects with a network error instead of
+        # resolving with status 401, so the caller never gets to react to it.
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Vary", "Origin")
         self.end_headers()
         self.wfile.write(payload)
 
@@ -114,10 +126,11 @@ class Handler(BaseHTTPRequestHandler):
         length = int(self.headers.get("Content-Length", 0) or 0)
         body = self.rfile.read(length) if length else b""
 
-        # Like API Gateway: CORS preflights skip auth, everything else needs
-        # a valid token whose claims are handed to the Lambda.
+        # Mirrors the deployed API: "/" (the health route) is public, CORS
+        # preflights skip auth, everything else needs a valid token whose
+        # claims are handed to the Lambda.
         claims = _decode_claims(self.headers)
-        if claims is None and self.command != "OPTIONS":
+        if claims is None and self.command != "OPTIONS" and split.path != "/":
             self._reject_unauthorized()
             return
 

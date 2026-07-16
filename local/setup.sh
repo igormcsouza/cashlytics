@@ -23,7 +23,8 @@ docker compose exec -T backend python -m src.auth.bootstrap
 
 echo "Waiting for the backend via the API gateway proxy on :5000 ..."
 for _ in $(seq 1 60); do
-  # Any response (even 401, before login) means the whole chain is up.
+  # "/" is the public health route (no auth needed), so any response means
+  # the whole chain — proxy, RIE, Lambda, FastAPI — is up.
   if curl -s -o /dev/null http://localhost:5000/; then break; fi
   sleep 1
 done

@@ -71,8 +71,11 @@ export default function Home() {
         window.location.href = "/login";
         return;
       }
-      setCheckingAuth(false);
+      // Load the real data *before* dropping the loading state, otherwise the
+      // (still-empty) table flashes for the duration of this fetch — the same
+      // flash this loading state exists to prevent.
       await refresh();
+      setCheckingAuth(false);
     })();
   }, []);
 
