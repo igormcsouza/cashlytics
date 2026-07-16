@@ -1,24 +1,16 @@
 """Authorization for the Cashlytics API.
 
-Token validation happens at the edge: API Gateway's Cognito JWT authorizer
-rejects unauthenticated requests before they reach the Lambda. This module only
-*trusts* the claims the authorizer forwards in the request context (surfaced by
-Mangum as ``request.scope["aws.event"]``) and enforces role-based access.
-
-Local development and the test suite run without API Gateway; setting
-``AUTH_BYPASS=true`` short-circuits the dependency with fake admin claims.
-Never set it in AWS.
+Token validation happens before the request reaches this app: in AWS the API
+Gateway Cognito JWT authorizer rejects unauthenticated requests, and locally
+the API gateway proxy (local/apigw-proxy) plays the same role against
+cognito-local. This module only *trusts* the claims the authorizer forwards in
+the request context (surfaced by Mangum as ``request.scope["aws.event"]``) and
+enforces role-based access. Requests without claims are rejected.
 """
-
-import os
 
 from fastapi import HTTPException, Request, status
 
 ADMIN_GROUP = "admin"
-
-
-def _bypass_enabled() -> bool:
-    return os.environ.get("AUTH_BYPASS", "").lower() == "true"
 
 
 def _extract_claims(request: Request) -> dict | None:
@@ -43,8 +35,6 @@ def require_admin(request: Request) -> dict:
     """FastAPI dependency: the caller must belong to the ``admin`` group."""
     claims = _extract_claims(request)
     if claims is None:
-        if _bypass_enabled():
-            return {"email": "local@cashlytics.dev", "cognito:groups": [ADMIN_GROUP]}
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated"
         )

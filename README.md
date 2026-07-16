@@ -20,20 +20,24 @@ Cashlytics helps you track, analyze, and optimize your finances in one place—g
 
 The local environment mirrors production: the backend runs as the **Lambda
 container image** via the AWS Lambda Runtime Interface Emulator, fronted by a
-small **API Gateway proxy** (HTTP → Lambda events), persisting to **DynamoDB
-Local**. No MongoDB.
+small **API Gateway proxy** (HTTP → Lambda events, including the Cognito JWT
+authorizer step) persisting to **DynamoDB Local**, authenticated against
+**[cognito-local](https://github.com/jagregory/cognito-local)** — the same
+role the real Cognito user pool plays in AWS. No MongoDB, no auth bypass.
 
 **Prerequisites**: [Docker](https://docs.docker.com/get-docker/) (+ Compose v2).
 `python3` is used to run the smoke test.
 
 ```bash
-# Bring up DynamoDB Local + backend Lambda + API proxy, and create the table
+# Bring up DynamoDB Local + cognito-local + backend Lambda + API proxy;
+# create the table and the Cognito user pool/admin users
 make up
 
-# Exercise create → list → edit → delete end to end
+# Exercise login -> create -> list -> edit -> delete end to end
 make smoke
 
-# Optional: run the Next.js frontend too (http://localhost:3000)
+# Run the Next.js frontend too (http://localhost:3000) — reads the Cognito
+# client id `make up` wrote to local/.cognito.env
 make ui
 
 # Reset local data / tear everything down
@@ -45,11 +49,14 @@ Endpoints once up:
 - Backend REST API (via the proxy): <http://localhost:5000> (e.g. `/expenses`)
 - Backend RIE invocations endpoint: <http://localhost:9000>
 - DynamoDB Local: <http://localhost:8000>
-- Frontend (with `make ui`): <http://localhost:3000>
+- cognito-local: <http://localhost:9229>
+- Frontend (with `make ui`): <http://localhost:3000> — log in with
+  `admin@cashlytics.dev` / `password`
 
 For CI, `make e2e` brings the stack up, runs the smoke test, and tears it down.
 Configuration lives in `.env.example`; the same env vars are used in AWS by
-changing only their values (e.g. unset `DYNAMODB_ENDPOINT_URL`).
+changing only their values (e.g. unset `DYNAMODB_ENDPOINT_URL`,
+point Cognito at the real user pool instead of cognito-local).
 
 ## Backend development (uv)
 
@@ -208,9 +215,12 @@ aws cognito-idp admin-set-user-password --user-pool-id <POOL_ID> \
   --username user@example.com --password '<NewPassword123!>' --permanent
 ```
 
-Locally (docker-compose / tests) there is no Cognito: the backend runs with
-`AUTH_BYPASS=true` and the frontend disables auth entirely because
-`NEXT_PUBLIC_COGNITO_CLIENT_ID` is unset. Never set `AUTH_BYPASS` in AWS.
+Locally, docker-compose runs **cognito-local** instead of real Cognito (see
+"Running Locally" above); the backend and API gateway proxy trust its tokens
+exactly as they trust real Cognito tokens in AWS — no bypass. The backend
+*test suite* (`uv run pytest`) doesn't start any stack, so it simulates the
+authorizer directly: `tests/conftest.py`'s `WithGatewayClaims` wraps the app
+with fake forwarded claims, the same shape API Gateway attaches in production.
 
 ## CI / CD
 

@@ -7,7 +7,11 @@ import json
 
 
 def _event(method: str, path: str, body: dict | None = None) -> dict:
-    """Build a minimal API Gateway HTTP API (v2) event for Mangum."""
+    """Build a minimal API Gateway HTTP API (v2) event for Mangum.
+
+    Includes the JWT authorizer context the Cognito authorizer attaches to
+    every event that reaches the Lambda in AWS.
+    """
     raw_body = json.dumps(body) if body is not None else None
     return {
         "version": "2.0",
@@ -21,7 +25,15 @@ def _event(method: str, path: str, body: dict | None = None) -> dict:
                 "path": path,
                 "protocol": "HTTP/1.1",
                 "sourceIp": "127.0.0.1",
-            }
+            },
+            "authorizer": {
+                "jwt": {
+                    "claims": {
+                        "email": "test@cashlytics.dev",
+                        "cognito:groups": "[admin]",
+                    }
+                }
+            },
         },
         "body": raw_body,
         "isBase64Encoded": False,

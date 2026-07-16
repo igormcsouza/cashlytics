@@ -6,6 +6,7 @@ from fastapi.testclient import TestClient
 from starlette.requests import Request
 
 from auth import groups_from_claims, require_admin
+from conftest import WithGatewayClaims
 
 
 def make_request(claims: dict | None = None) -> Request:
@@ -41,39 +42,23 @@ class TestGroupsFromClaims:
 
 
 class TestRequireAdmin:
-    def test_no_claims_rejected(self, monkeypatch):
-        monkeypatch.delenv("AUTH_BYPASS", raising=False)
+    def test_no_claims_rejected(self):
         with pytest.raises(HTTPException) as exc:
             require_admin(make_request())
         assert exc.value.status_code == 401
 
-    def test_non_admin_rejected(self, monkeypatch):
-        monkeypatch.delenv("AUTH_BYPASS", raising=False)
+    def test_non_admin_rejected(self):
         with pytest.raises(HTTPException) as exc:
             require_admin(make_request({"cognito:groups": "[viewer]"}))
         assert exc.value.status_code == 403
 
-    def test_admin_allowed(self, monkeypatch):
-        monkeypatch.delenv("AUTH_BYPASS", raising=False)
+    def test_admin_allowed(self):
         claims = {"email": "a@b.c", "cognito:groups": "[admin]"}
         assert require_admin(make_request(claims)) == claims
 
-    def test_bypass_allows_without_event(self, monkeypatch):
-        monkeypatch.setenv("AUTH_BYPASS", "true")
-        claims = require_admin(make_request())
-        assert "admin" in claims["cognito:groups"]
 
-    def test_bypass_does_not_skip_role_check(self, monkeypatch):
-        # A real (non-admin) token must be rejected even with bypass on.
-        monkeypatch.setenv("AUTH_BYPASS", "true")
-        with pytest.raises(HTTPException) as exc:
-            require_admin(make_request({"cognito:groups": "[viewer]"}))
-        assert exc.value.status_code == 403
-
-
-def test_api_rejects_unauthenticated_requests(monkeypatch):
-    """Without bypass or gateway claims every expense route is 401."""
-    monkeypatch.delenv("AUTH_BYPASS", raising=False)
+def test_api_rejects_unauthenticated_requests():
+    """Without authorizer claims every expense route is 401."""
     from app import app
 
     client = TestClient(app)
@@ -81,5 +66,15 @@ def test_api_rejects_unauthenticated_requests(monkeypatch):
     assert client.post("/expenses", json={}).status_code == 401
     assert client.put("/expenses/x", json={}).status_code == 401
     assert client.delete("/expenses/x").status_code == 401
-    # Health stays open at the app level (the gateway still protects it in AWS).
+    # Health has no role requirement (the authorizer still guards it in AWS).
     assert client.get("/").status_code == 200
+
+
+def test_api_rejects_non_admin_requests():
+    """A valid token without the admin group is 403."""
+    from app import app
+
+    client = TestClient(
+        WithGatewayClaims(app, {"email": "v@x.y", "cognito:groups": "[viewer]"})
+    )
+    assert client.get("/expenses").status_code == 403

@@ -18,9 +18,6 @@ def aws_credentials(monkeypatch):
     monkeypatch.setenv("ENVIRONMENT", "test")
     # Ensure no leftover endpoint override points us at DynamoDB Local.
     monkeypatch.delenv("DYNAMODB_ENDPOINT_URL", raising=False)
-    # No API Gateway authorizer in tests — bypass auth like local dev does.
-    # tests/test_auth.py removes this to exercise the real dependency.
-    monkeypatch.setenv("AUTH_BYPASS", "true")
 
 
 @pytest.fixture
@@ -49,11 +46,37 @@ def repository(dynamodb_table):
     return DynamoDBRepository(TABLE_NAME)
 
 
+ADMIN_CLAIMS = {"email": "test@cashlytics.dev", "cognito:groups": "[admin]"}
+
+
+class WithGatewayClaims:
+    """ASGI wrapper simulating the API Gateway JWT authorizer.
+
+    In AWS the authorizer validates the token and forwards its claims in the
+    Lambda event; Mangum exposes that event as ``scope["aws.event"]``. Tests
+    reproduce exactly that so the app's auth dependency runs for real.
+    """
+
+    def __init__(self, app, claims):
+        self.app = app
+        self.claims = claims
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "http":
+            scope = {
+                **scope,
+                "aws.event": {
+                    "requestContext": {"authorizer": {"jwt": {"claims": self.claims}}}
+                },
+            }
+        await self.app(scope, receive, send)
+
+
 @pytest.fixture
 def client(dynamodb_table):
     from app import app
 
-    with TestClient(app) as c:
+    with TestClient(WithGatewayClaims(app, ADMIN_CLAIMS)) as c:
         yield c
 
 

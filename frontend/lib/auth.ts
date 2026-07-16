@@ -9,6 +9,10 @@
 
 const CLIENT_ID = process.env.NEXT_PUBLIC_COGNITO_CLIENT_ID ?? "";
 const REGION = process.env.NEXT_PUBLIC_COGNITO_REGION ?? "us-east-1";
+// Overridden locally to point at cognito-local instead of real AWS.
+const ENDPOINT =
+  process.env.NEXT_PUBLIC_COGNITO_ENDPOINT ??
+  `https://cognito-idp.${REGION}.amazonaws.com`;
 
 export const ID_TOKEN_COOKIE = "cashlytics_id_token";
 export const REFRESH_TOKEN_COOKIE = "cashlytics_refresh_token";
@@ -21,7 +25,7 @@ export type LoginResult =
   | { status: "new_password_required"; session: string };
 
 async function cognito(target: string, body: unknown): Promise<any> {
-  const res = await fetch(`https://cognito-idp.${REGION}.amazonaws.com/`, {
+  const res = await fetch(ENDPOINT, {
     method: "POST",
     headers: {
       "Content-Type": "application/x-amz-json-1.1",
