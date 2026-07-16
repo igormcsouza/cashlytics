@@ -156,15 +156,27 @@ class BackendStack(cdk.Stack):
 
         integration = apigwv2_integrations.HttpLambdaIntegration("Backend", fn)
 
+        # Real HTTP methods only — OPTIONS is deliberately excluded so preflight
+        # requests fall through to API Gateway's built-in CORS auto-response
+        # (configured above) instead of being matched by these routes and
+        # sent through the JWT authorizer, which browsers never attach
+        # credentials to and would fail as a result.
+        route_methods = [
+            apigwv2.HttpMethod.GET,
+            apigwv2.HttpMethod.POST,
+            apigwv2.HttpMethod.PUT,
+            apigwv2.HttpMethod.DELETE,
+        ]
+
         # "/{proxy+}" does not match the bare root path, so both are added.
         http_api.add_routes(
             path="/",
-            methods=[apigwv2.HttpMethod.ANY],
+            methods=route_methods,
             integration=integration,
         )
         http_api.add_routes(
             path="/{proxy+}",
-            methods=[apigwv2.HttpMethod.ANY],
+            methods=route_methods,
             integration=integration,
         )
 
