@@ -9,7 +9,7 @@ for _ in $(seq 1 60); do
 done
 
 echo "Creating the expenses table (idempotent) ..."
-docker compose exec -T backend python -m database.bootstrap
+docker compose exec -T backend python -m src.core.bootstrap
 
 echo "Waiting for the backend via the API gateway proxy on :5000 ..."
 for _ in $(seq 1 60); do

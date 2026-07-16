@@ -57,6 +57,22 @@ The backend is a FastAPI app managed with [uv](https://docs.astral.sh/uv/).
 Dependencies are defined in `backend/pyproject.toml` and pinned in
 `backend/uv.lock` (uv is the source of truth; there is no `requirements.txt`).
 
+The code follows a domain-package layout (see
+[zhanymkanov/fastapi-best-practices](https://github.com/zhanymkanov/fastapi-best-practices)):
+
+```text
+backend/src/
+├── main.py        # FastAPI app: CORS, health route, router includes
+├── core/          # config (env vars, table names), DynamoDB connection, local bootstrap
+├── shared/        # Repository protocol + generic DynamoDBRepository
+└── expense/       # expense domain: models, exceptions, repositories, services, controllers
+```
+
+Each domain lives in its own package with `models.py`, `exceptions.py`,
+`repositories.py`, `services.py`, and `controllers.py`; a future domain (e.g.
+`auth/`) is a sibling package with the same files. Tests under `backend/tests/`
+mirror this layout, and coverage is enforced at 100% (`--cov-fail-under=100`).
+
 ```bash
 cd backend
 
@@ -64,13 +80,14 @@ cd backend
 uv sync
 
 # Point at DynamoDB Local for development, then create the table
+# (also seeds sample data from src/core/seed_data.json — dev/local envs only)
 export ENVIRONMENT=dev # table name -> "dev-expenses"
-export AWS_REGION=us-east-1
+export AWS_REGION=sa-east-1
 export DYNAMODB_ENDPOINT_URL=http://localhost:8000
-uv run python -m database.bootstrap
+uv run python -m src.core.bootstrap
 
 # Run the API locally
-uv run uvicorn app:app --reload --port 5000
+uv run uvicorn src.main:app --reload --port 5000
 
 # Run the test suite (DynamoDB is mocked with moto — no database needed)
 uv run pytest
@@ -82,7 +99,7 @@ Configuration comes from environment variables:
 
 - `ENVIRONMENT` — deployment environment prefixed to table names (default
   `dev`), e.g. `prod` gives the table `prod-expenses`
-- `AWS_REGION` — AWS region (default `us-east-1`)
+- `AWS_REGION` — AWS region (default `sa-east-1`)
 - `DYNAMODB_ENDPOINT_URL` — endpoint override for DynamoDB Local in dev; leave
   **unset** in AWS so the SDK uses the real DynamoDB endpoint
 
@@ -101,7 +118,7 @@ docker build -t cashlytics-backend:lambda .
 # Invoke locally with the Lambda Runtime Interface Emulator
 docker run --rm -p 9000:8080 \
   -e ENVIRONMENT=dev \
-  -e AWS_REGION=us-east-1 \
+  -e AWS_REGION=sa-east-1 \
   -e DYNAMODB_ENDPOINT_URL=http://host.docker.internal:8000 \
   cashlytics-backend:lambda
 

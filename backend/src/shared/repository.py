@@ -1,49 +1,43 @@
-"""A generic, reusable DynamoDB repository built on boto3.
+"""Generic repository abstractions shared by every domain.
 
-This module is intentionally free of business logic: it stores and retrieves
-items by key and does no transformation beyond what DynamoDB storage requires
-(floats <-> ``Decimal``). It is configured entirely from environment variables
-so the same code runs against DynamoDB Local in dev and real DynamoDB in AWS.
+``Repository`` is a structural interface (:class:`typing.Protocol`): services
+depend on it instead of a concrete storage class, so storage backends can be
+swapped (or faked in tests) without touching business logic.
 
-Environment variables:
-    AWS_REGION             AWS region (default: us-east-1)
-    DYNAMODB_ENDPOINT_URL  Endpoint override for DynamoDB Local (unset in AWS)
-    ENVIRONMENT            Deployment environment, prefixed to table names
-                           (default: dev), e.g. ``prod`` -> ``prod-expenses``
+``DynamoDBRepository`` is the boto3-backed implementation. It is intentionally
+free of business logic: it stores and retrieves items by key and does no
+transformation beyond what DynamoDB storage requires (floats <-> ``Decimal``).
 """
 
 import json
-import os
 from decimal import Decimal
-from functools import lru_cache
-from typing import Any
+from typing import Any, Protocol
 
-import boto3
-
-AWS_REGION = os.environ.get("AWS_REGION", "us-east-1")
-DYNAMODB_ENDPOINT_URL = os.environ.get("DYNAMODB_ENDPOINT_URL")
+from src.core.database import get_resource
 
 
-def table_name(base: str) -> str:
-    """Compose a fully-qualified table name from the deployment environment.
+class Repository(Protocol):
+    """Structural interface for key/value-ish persistence over one table."""
 
-    The environment (``dev``/``stage``/``prod``) is read from the ``ENVIRONMENT``
-    env var and prefixed to a hardcoded base name, e.g. ``prod`` + ``expenses``
-    -> ``prod-expenses``. This keeps a single env var per deployment instead of
-    one full table name per table, so adding tables doesn't add env vars.
-    """
-    environment = os.environ.get("ENVIRONMENT", "dev")
-    return f"{environment}-{base}"
+    def save(self, item: dict[str, Any]) -> dict[str, Any]:
+        """Persist a complete item (create or full overwrite)."""
+        ...  # pragma: no cover
 
+    def get(self, key: str) -> dict[str, Any] | None:
+        """Fetch a single item by its partition key."""
+        ...  # pragma: no cover
 
-@lru_cache(maxsize=1)
-def get_resource():
-    """DynamoDB resource, initialized once at module scope (cold-start friendly)."""
-    return boto3.resource(
-        "dynamodb",
-        region_name=AWS_REGION,
-        endpoint_url=DYNAMODB_ENDPOINT_URL,
-    )
+    def list(self) -> list[dict[str, Any]]:
+        """Return all items in the table."""
+        ...  # pragma: no cover
+
+    def update(self, key: str, item: dict[str, Any]) -> dict[str, Any]:
+        """Overwrite the item at ``key`` with ``item`` (full replace)."""
+        ...  # pragma: no cover
+
+    def delete(self, key: str) -> bool:
+        """Delete an item by key. Returns True if an item was deleted."""
+        ...  # pragma: no cover
 
 
 def _to_dynamo(item: dict[str, Any]) -> dict[str, Any]:
@@ -63,7 +57,7 @@ def _from_dynamo(item: dict[str, Any]) -> dict[str, Any]:
 
 
 class DynamoDBRepository:
-    """Generic key/value-ish access over a single DynamoDB table."""
+    """boto3-backed :class:`Repository` over a single DynamoDB table."""
 
     def __init__(self, table_name: str, key_name: str = "id"):
         self.table_name = table_name

@@ -9,6 +9,6 @@ Deployed as a container image with ``CMD ["lambda_function.handler"]``.
 
 from mangum import Mangum
 
-from app import app
+from src.main import app
 
 handler = Mangum(app)

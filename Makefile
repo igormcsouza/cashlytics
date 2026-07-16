@@ -15,7 +15,7 @@ ui:
 
 ## Create/seed the DynamoDB table (idempotent).
 seed:
-	docker compose exec -T backend python -m database.bootstrap
+	docker compose exec -T backend python -m src.core.bootstrap
 
 ## Run the end-to-end smoke test against the running stack.
 smoke:
