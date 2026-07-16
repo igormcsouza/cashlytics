@@ -3,13 +3,14 @@
 Run against DynamoDB Local in development:
 
     ENVIRONMENT=dev DYNAMODB_ENDPOINT_URL=http://localhost:8000 \
-        uv run python -m database.bootstrap
+        uv run python -m src.core.bootstrap
 
 The table name is composed as ``<ENVIRONMENT>-expenses`` (default ``dev``).
-In AWS the table is provisioned by the CDK stacks (Step 5), not this script.
+In AWS the table is provisioned by the CDK stacks, not this script.
 """
 
-from database.repository import get_resource, table_name
+from src.core.config import table_name
+from src.core.database import get_resource
 
 EXPENSES_TABLE = table_name("expenses")
 
@@ -31,5 +32,5 @@ def create_table(name: str = EXPENSES_TABLE) -> None:
     print(f"Created table '{name}'.")
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     create_table()

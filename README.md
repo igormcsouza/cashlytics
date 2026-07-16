@@ -57,6 +57,22 @@ The backend is a FastAPI app managed with [uv](https://docs.astral.sh/uv/).
 Dependencies are defined in `backend/pyproject.toml` and pinned in
 `backend/uv.lock` (uv is the source of truth; there is no `requirements.txt`).
 
+The code follows a domain-package layout (see
+[zhanymkanov/fastapi-best-practices](https://github.com/zhanymkanov/fastapi-best-practices)):
+
+```text
+backend/src/
+├── main.py        # FastAPI app: CORS, health route, router includes
+├── core/          # config (env vars, table names), DynamoDB connection, local bootstrap
+├── shared/        # Repository protocol + generic DynamoDBRepository
+└── expense/       # expense domain: models, exceptions, repositories, services, controllers
+```
+
+Each domain lives in its own package with `models.py`, `exceptions.py`,
+`repositories.py`, `services.py`, and `controllers.py`; a future domain (e.g.
+`auth/`) is a sibling package with the same files. Tests under `backend/tests/`
+mirror this layout, and coverage is enforced at 100% (`--cov-fail-under=100`).
+
 ```bash
 cd backend
 
@@ -67,10 +83,10 @@ uv sync
 export ENVIRONMENT=dev # table name -> "dev-expenses"
 export AWS_REGION=us-east-1
 export DYNAMODB_ENDPOINT_URL=http://localhost:8000
-uv run python -m database.bootstrap
+uv run python -m src.core.bootstrap
 
 # Run the API locally
-uv run uvicorn app:app --reload --port 5000
+uv run uvicorn src.main:app --reload --port 5000
 
 # Run the test suite (DynamoDB is mocked with moto — no database needed)
 uv run pytest

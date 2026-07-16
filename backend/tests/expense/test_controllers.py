@@ -1,10 +1,4 @@
-"""API tests for the FastAPI backend (Step 2), DynamoDB mocked with moto."""
-
-
-def test_health_route(client):
-    res = client.get("/")
-    assert res.status_code == 200
-    assert res.json()["status"] == "ok"
+"""API tests for the expense routes, DynamoDB mocked with moto."""
 
 
 def test_list_empty(client):
