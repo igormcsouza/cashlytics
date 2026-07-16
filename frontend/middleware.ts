@@ -9,6 +9,19 @@ const AUTH_ENABLED = Boolean(process.env.NEXT_PUBLIC_COGNITO_CLIENT_ID);
 const ID_TOKEN_COOKIE = "cashlytics_id_token";
 const REFRESH_TOKEN_COOKIE = "cashlytics_refresh_token";
 
+// A relative Location header, resolved by the browser against the page it
+// actually requested (the CloudFront domain) — never build an absolute URL
+// from `request.url` here. Behind CloudFront the Lambda origin never sees the
+// real Host (the distribution's origin request policy strips it), so
+// `request.url`/`request.nextUrl` resolve to the origin's own raw Function URL
+// instead of the public domain; redirecting there breaks every `/_next/static/*`
+// asset, since those are only served through CloudFront's S3 route.
+function redirect(path: string): NextResponse {
+  const res = new NextResponse(null, { status: 307 });
+  res.headers.set("Location", path);
+  return res;
+}
+
 export function middleware(request: NextRequest) {
   if (!AUTH_ENABLED) return NextResponse.next();
 
@@ -20,10 +33,10 @@ export function middleware(request: NextRequest) {
   const isLoginPage = request.nextUrl.pathname === "/login";
 
   if (!loggedIn && !isLoginPage) {
-    return NextResponse.redirect(new URL("/login", request.url));
+    return redirect("/login");
   }
   if (loggedIn && isLoginPage) {
-    return NextResponse.redirect(new URL("/", request.url));
+    return redirect("/");
   }
   return NextResponse.next();
 }
