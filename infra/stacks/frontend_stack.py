@@ -31,11 +31,20 @@ class FrontendStack(cdk.Stack):
     ) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
+        is_prod = environment == "prod"
+
+        # Non-prod buckets are destroyed with the stack (PR envs are
+        # ephemeral). The prod bucket is retained even if the stack is ever
+        # deleted — ISR cache/static assets surviving a bad deploy is not
+        # essential, but auto-deleting them on stack teardown is a needless
+        # risk for the one environment that matters.
         self.assets_bucket = s3.Bucket(
             self,
             "FrontendAssets",
-            removal_policy=cdk.RemovalPolicy.DESTROY,
-            auto_delete_objects=True,
+            removal_policy=(
+                cdk.RemovalPolicy.RETAIN if is_prod else cdk.RemovalPolicy.DESTROY
+            ),
+            auto_delete_objects=not is_prod,
             block_public_access=s3.BlockPublicAccess.BLOCK_ALL,
             encryption=s3.BucketEncryption.S3_MANAGED,
         )

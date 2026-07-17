@@ -87,8 +87,14 @@ jobs:
           # Repo variable overrides the default admin users without a commit.
           ADMIN_EMAILS: ${{ vars.ADMIN_EMAILS || 'igormcsouza@gmail.com,eilawoman@hotmail.com' }}
         run: |
+          # --exclusively: FrontendStack references backend.http_api.url, so
+          # without this flag `cdk deploy CashlyticsFrontend-prod` below would
+          # implicitly redeploy this stack too — with no -c admin_emails,
+          # flipping prod's real admin users back to the dev placeholders on
+          # every push (see git history around 2026-07-17).
           cdk deploy \
             "CashlyticsDatabase-prod" "CashlyticsBackend-prod" \
+            --exclusively \
             --require-approval never \
             -c environment=prod \
             -c admin_emails="${ADMIN_EMAILS}" \
@@ -132,6 +138,7 @@ jobs:
           rm -rf cdk.out
           cdk deploy \
             "CashlyticsFrontend-prod" \
+            --exclusively \
             --require-approval never \
             -c environment=prod \
             --outputs-file cdk-frontend-outputs.json

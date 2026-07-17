@@ -14,7 +14,7 @@ class Config:
     ADMIN_GROUP = "admin"
     # Default admin users for non-prod environments; the deploy workflow sets
     # their password. Prod deploys override via `-c admin_emails=...`.
-    DEFAULT_ADMIN_EMAILS = "admin@cashlytics.dev,admin2@cashlytics.dev"
+    DEFAULT_ADMIN_EMAILS = "admin@cashlytics.dev"
 
 
 def expenses_table_name(environment: str) -> str:

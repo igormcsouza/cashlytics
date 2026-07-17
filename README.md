@@ -214,10 +214,10 @@ Admin users:
   emails each user a **temporary password**; the login page then asks them to
   choose their own (`NEW_PASSWORD_REQUIRED` flow). Prod password policy:
   12+ chars with upper/lower/digit/symbol.
-- **PR / dev environments** — `admin@cashlytics.dev` / `password` (plus
-  `admin2@cashlytics.dev`). The deploy workflow sets this as a permanent
-  password right after the backend deploy so reviewers can log in without any
-  email round-trip; the PR comment repeats the credentials.
+- **PR / dev environments** — `admin@cashlytics.dev` / `password`. The deploy
+  workflow sets this as a permanent password right after the backend deploy
+  so reviewers can log in without any email round-trip; the PR comment
+  repeats the credentials.
 
 Useful operations (user pool id is in the `CashlyticsBackend-{env}` stack
 outputs):
