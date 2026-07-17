@@ -1,0 +1,83 @@
+name: E2E
+
+on:
+  workflow_call:
+    inputs:
+      full:
+        description: "Also run the Playwright browser suite after the smoke test"
+        type: boolean
+        required: false
+        default: false
+
+jobs:
+  e2e:
+    name: ${{ inputs.full && 'Smoke + full E2E' || 'Smoke test' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      # docker + compose v2 are preinstalled on ubuntu-latest.
+      - name: Start local stack
+        run: make up
+
+      - name: Smoke test
+        run: make smoke
+
+      - name: Start frontend container
+        if: inputs.full
+        run: make ui
+
+      - name: Set up Node.js
+        if: inputs.full
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        if: inputs.full
+        working-directory: frontend
+        run: npm ci
+
+      - name: Install Playwright browser
+        if: inputs.full
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+
+      - name: Wait for frontend on :3000
+        if: inputs.full
+        run: |
+          for _ in $(seq 1 60); do
+            if curl -sf -o /dev/null http://localhost:3000; then exit 0; fi
+            sleep 2
+          done
+          echo "Frontend never became reachable"
+          docker compose logs frontend
+          exit 1
+
+      - name: Run Playwright E2E
+        if: inputs.full
+        working-directory: frontend
+        run: npm run test:e2e
+
+      - name: Upload Playwright artifacts
+        if: inputs.full && failure()
+        uses: actions/upload-artifact@v6
+        with:
+          name: playwright-artifacts
+          path: |
+            frontend/e2e/screenshots/
+            frontend/test-results/
+          if-no-files-found: ignore
+
+      - name: Dump stack logs on failure
+        if: failure()
+        run: docker compose logs
+
+      - name: Tear down
+        if: always()
+        run: make down

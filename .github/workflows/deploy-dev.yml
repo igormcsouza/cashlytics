@@ -19,9 +19,14 @@ jobs:
     name: CI
     uses: ./.github/workflows/ci.yml
 
+  e2e-smoke:
+    name: E2E Smoke
+    needs: ci
+    uses: ./.github/workflows/e2e.yml
+
   deploy:
     name: Deploy PR Environment
-    needs: ci
+    needs: e2e-smoke
     runs-on: ubuntu-latest
     environment:
       name: development
