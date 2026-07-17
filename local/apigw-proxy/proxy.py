@@ -8,9 +8,9 @@ frontend and the smoke test a real REST endpoint backed by the production
 Lambda handler.
 
 It also emulates the Cognito JWT authorizer that protects the HTTP API in
-AWS: requests without a Bearer token (except CORS preflights and "/", the
-public health route) are rejected with 401, and the token's claims are
-forwarded to the Lambda in ``requestContext.authorizer.jwt.claims`` — the
+AWS: requests without a Bearer token (except CORS preflights and the public
+paths — see PUBLIC_PATHS below) are rejected with 401, and the token's claims
+are forwarded to the Lambda in ``requestContext.authorizer.jwt.claims`` — the
 exact shape the backend trusts in production. The token comes from
 cognito-local; only its expiry is checked here (signature verification is API
 Gateway's job in AWS, and this proxy is a dev-only tool that keeps to the
@@ -37,6 +37,11 @@ LAMBDA_RIE_URL = os.environ.get(
     "http://backend:8080/2015-03-31/functions/function/invocations",
 )
 PORT = int(os.environ.get("PORT", "8080"))
+
+# Must match the public_paths list in infra/stacks/backend_stack.py: the
+# health route plus FastAPI's auto-generated API docs — metadata, not data,
+# no reason to require login just to browse them.
+PUBLIC_PATHS = frozenset(["/", "/docs", "/redoc", "/openapi.json"])
 
 
 def _decode_claims(headers) -> dict | None:
@@ -126,11 +131,15 @@ class Handler(BaseHTTPRequestHandler):
         length = int(self.headers.get("Content-Length", 0) or 0)
         body = self.rfile.read(length) if length else b""
 
-        # Mirrors the deployed API: "/" (the health route) is public, CORS
-        # preflights skip auth, everything else needs a valid token whose
-        # claims are handed to the Lambda.
+        # Mirrors the deployed API: PUBLIC_PATHS are public, CORS preflights
+        # skip auth, everything else needs a valid token whose claims are
+        # handed to the Lambda.
         claims = _decode_claims(self.headers)
-        if claims is None and self.command != "OPTIONS" and split.path != "/":
+        if (
+            claims is None
+            and self.command != "OPTIONS"
+            and split.path not in PUBLIC_PATHS
+        ):
             self._reject_unauthorized()
             return
 

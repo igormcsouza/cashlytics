@@ -180,17 +180,25 @@ class BackendStack(cdk.Stack):
             apigwv2.HttpMethod.DELETE,
         ]
 
-        # "/" only ever serves the health route (see src/main.py) — no
-        # default_authorizer is set on the API, so it's explicitly public
-        # here, letting external monitors/load balancers probe it without a
-        # token. Every other path goes through "/{proxy+}", explicitly
-        # authorized, which in practice is everything under /expenses.
-        http_api.add_routes(
-            path="/",
-            methods=route_methods,
-            integration=integration,
-            authorizer=apigwv2.HttpNoneAuthorizer(),
-        )
+        # Public paths: the health route, plus FastAPI's auto-generated API
+        # docs (Swagger UI, ReDoc, and the raw OpenAPI schema they render).
+        # Docs are just endpoint/schema metadata, not data — no reason to
+        # require login to browse them, and Swagger's own "Try it out" still
+        # needs a real token to call anything protected. No
+        # default_authorizer is set on the API, so each is explicitly public
+        # here; API Gateway matches these exact paths before falling through
+        # to the "/{proxy+}" catch-all below.
+        public_paths = ["/", "/docs", "/redoc", "/openapi.json"]
+        for path in public_paths:
+            http_api.add_routes(
+                path=path,
+                methods=route_methods,
+                integration=integration,
+                authorizer=apigwv2.HttpNoneAuthorizer(),
+            )
+
+        # Everything else goes through "/{proxy+}", explicitly authorized,
+        # which in practice is everything under /expenses.
         http_api.add_routes(
             path="/{proxy+}",
             methods=route_methods,
