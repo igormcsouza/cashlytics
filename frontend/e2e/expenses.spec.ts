@@ -15,6 +15,25 @@ function isoOffset(days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
+// Like isoOffset, but clamps to the last day of the current month. The
+// expense table defaults to the current calendar month, and non-recurring
+// expenses (unlike recurring ones) only ever show up in their own deadline's
+// month, so a fixture using this must not cross a month boundary or its row
+// silently disappears. (If "today" is already the last day of the month, this
+// collapses to "due today" instead of "upcoming" — an accepted edge case.)
+function isoOffsetSameMonth(days: number): string {
+  const d = new Date();
+  const target = new Date(d);
+  target.setDate(target.getDate() + days);
+  if (
+    target.getMonth() !== d.getMonth() ||
+    target.getFullYear() !== d.getFullYear()
+  ) {
+    target.setFullYear(d.getFullYear(), d.getMonth() + 1, 0);
+  }
+  return target.toISOString().slice(0, 10);
+}
+
 // `make up` writes the cognito-local client id here (see auth_bootstrap.py).
 function readClientId(): string {
   const envPath = path.join(__dirname, "..", "..", "local", ".cognito.env");
@@ -66,7 +85,7 @@ async function seed(request: APIRequestContext, token: string) {
     // Due today -> yellow row
     { description: "Electricity (due today)", deadline: isoOffset(0), value: 120.5, recurrent: true, paid: false },
     // Upcoming -> normal row; we'll mark this one paid in the UI
-    { description: "Gym (upcoming)", deadline: isoOffset(20), value: 45, recurrent: false, paid: false },
+    { description: "Gym (upcoming)", deadline: isoOffsetSameMonth(20), value: 45, recurrent: false, paid: false },
     // Already paid -> green row
     { description: "Rent (paid)", deadline: isoOffset(10), value: 1500, recurrent: true, paid: true },
   ];
