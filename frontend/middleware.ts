@@ -9,17 +9,16 @@ const AUTH_ENABLED = Boolean(process.env.NEXT_PUBLIC_COGNITO_CLIENT_ID);
 const ID_TOKEN_COOKIE = "cashlytics_id_token";
 const REFRESH_TOKEN_COOKIE = "cashlytics_refresh_token";
 
-// A relative Location header, resolved by the browser against the page it
-// actually requested (the CloudFront domain) — never build an absolute URL
-// from `request.url` here. Behind CloudFront the Lambda origin never sees the
-// real Host (the distribution's origin request policy strips it), so
-// `request.url`/`request.nextUrl` resolve to the origin's own raw Function URL
-// instead of the public domain; redirecting there breaks every `/_next/static/*`
-// asset, since those are only served through CloudFront's S3 route.
-function redirect(path: string): NextResponse {
-  const res = new NextResponse(null, { status: 307 });
-  res.headers.set("Location", path);
-  return res;
+// Next's non-edge middleware adapter (`next start`, what this Lambda-container
+// image runs) always re-parses the Location header as an absolute URL with no
+// base and throws "Invalid URL" on a bare relative path — so this has to be
+// built from `request.url`, even though behind CloudFront the Lambda origin
+// never sees the real Host (the distribution's origin request policy strips
+// it), meaning `request.url` resolves to the origin's own raw Function URL
+// instead of the public domain. That's a known follow-up: have CloudFront
+// forward the real Host as a custom header and read that here instead.
+function redirect(request: NextRequest, path: string): NextResponse {
+  return NextResponse.redirect(new URL(path, request.url), 307);
 }
 
 export function middleware(request: NextRequest) {
@@ -33,10 +32,10 @@ export function middleware(request: NextRequest) {
   const isLoginPage = request.nextUrl.pathname === "/login";
 
   if (!loggedIn && !isLoginPage) {
-    return redirect("/login");
+    return redirect(request, "/login");
   }
   if (loggedIn && isLoginPage) {
-    return redirect("/");
+    return redirect(request, "/");
   }
   return NextResponse.next();
 }
