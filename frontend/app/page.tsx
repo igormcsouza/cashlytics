@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { ChevronRight, Wallet } from "lucide-react";
 import DeleteConfirm from "@/components/DeleteConfirm";
 import ExpenseModal from "@/components/ExpenseModal";
 import ExpenseTable from "@/components/ExpenseTable";
@@ -154,7 +155,9 @@ export default function Home() {
     <div className="max-w-4xl mx-auto py-10 px-4">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-3xl font-bold text-indigo-300">💰 Cashlytics</h1>
+        <h1 className="text-3xl font-bold text-indigo-300 flex items-center gap-2">
+          <Wallet className="h-7 w-7" aria-hidden="true" /> Cashlytics
+        </h1>
         <div className="flex items-center gap-2">
           <button
             onClick={openCreate}
@@ -210,11 +213,11 @@ export default function Home() {
           <span className="flex items-center gap-2 text-slate-300 font-medium">
             <span
               className={
-                "inline-block text-indigo-300 transition-transform duration-200 " +
+                "inline-flex text-indigo-300 transition-transform duration-200 " +
                 (showBreakdown ? "rotate-90" : "")
               }
             >
-              ▶
+              <ChevronRight className="h-4 w-4" aria-hidden="true" />
             </span>
             Total Expenses
           </span>
