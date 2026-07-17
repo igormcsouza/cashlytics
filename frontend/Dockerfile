@@ -1,6 +1,6 @@
 # Production-equivalent Next.js server (server-rendered), mirroring the Lambda
 # SSR target. For lightweight day-to-day work, `npm run dev` is the alternative.
-FROM node:20-slim AS build
+FROM node:24-slim AS build
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
@@ -15,7 +15,7 @@ ENV NEXT_PUBLIC_COGNITO_REGION=$NEXT_PUBLIC_COGNITO_REGION
 ENV NEXT_PUBLIC_COGNITO_ENDPOINT=$NEXT_PUBLIC_COGNITO_ENDPOINT
 RUN npm run build
 
-FROM node:20-slim AS runtime
+FROM node:24-slim AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
 COPY --from=build /app/package.json /app/package-lock.json ./
