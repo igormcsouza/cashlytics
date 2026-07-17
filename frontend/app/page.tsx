@@ -25,6 +25,7 @@ export default function Home() {
 
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState<Expense | null>(null);
@@ -63,7 +64,10 @@ export default function Home() {
 
   useEffect(() => {
     if (!authEnabled) {
-      refresh();
+      // Cold starts on the backend (e.g. Lambda + DB spin-up) can take a few
+      // seconds, so show a spinner for the initial load instead of flashing
+      // the "no expenses" empty state while data is still in flight.
+      refresh().finally(() => setLoading(false));
       return;
     }
     (async () => {
@@ -76,6 +80,7 @@ export default function Home() {
       // (still-empty) table flashes for the duration of this fetch — the same
       // flash this loading state exists to prevent.
       await refresh();
+      setLoading(false);
       setCheckingAuth(false);
     })();
   }, []);
@@ -252,6 +257,7 @@ export default function Home() {
 
       <ExpenseTable
         expenses={expenses}
+        loading={loading}
         onEdit={openEdit}
         onDelete={setDeleting}
         onTogglePaid={handleTogglePaid}

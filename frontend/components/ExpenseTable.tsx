@@ -4,6 +4,7 @@ import { expenseStatus } from "@/lib/status";
 
 interface Props {
   expenses: Expense[];
+  loading?: boolean;
   onEdit: (expense: Expense) => void;
   onDelete: (expense: Expense) => void;
   onTogglePaid: (expense: Expense) => void;
@@ -19,6 +20,7 @@ const ROW_CLASS: Record<string, string> = {
 
 export default function ExpenseTable({
   expenses,
+  loading = false,
   onEdit,
   onDelete,
   onTogglePaid,
@@ -36,7 +38,24 @@ export default function ExpenseTable({
           </tr>
         </thead>
         <tbody>
-          {expenses.length === 0 ? (
+          {loading ? (
+            <tr>
+              <td colSpan={5} className="px-4 py-10 text-center">
+                <div
+                  role="status"
+                  aria-label="Loading expenses"
+                  className="flex items-center justify-center gap-3 text-slate-400"
+                >
+                  <div className="flex gap-2">
+                    <span className="w-3 h-3 rounded-full bg-indigo-400 animate-bounce [animation-delay:-0.3s]" />
+                    <span className="w-3 h-3 rounded-full bg-indigo-400 animate-bounce [animation-delay:-0.15s]" />
+                    <span className="w-3 h-3 rounded-full bg-indigo-400 animate-bounce" />
+                  </div>
+                  <span>Loading expenses…</span>
+                </div>
+              </td>
+            </tr>
+          ) : expenses.length === 0 ? (
             <tr>
               <td
                 colSpan={5}
