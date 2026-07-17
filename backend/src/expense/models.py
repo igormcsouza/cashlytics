@@ -34,3 +34,33 @@ class Expense(BaseModel):
     value: float
     recurrent: bool
     paid: bool = False
+
+
+class PaidStatusIn(BaseModel):
+    """Request body for marking a specific month's instance paid/due."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    paid: bool
+
+
+class ExpenseMonthStatus(BaseModel):
+    """Per-month paid/due override for a recurring expense instance.
+
+    A recurring expense (e.g. rent) has a single ``Expense`` record, but its
+    paid/due status must be tracked independently for every month it recurs
+    into — marking April's instance paid must not mark May's paid too. Rather
+    than extend the repository with composite (partition + sort) key
+    support, this stores one row per (expense, month) in its own table, keyed
+    by a composite ``id`` of ``"{expense_id}#{month}"`` so it fits the
+    existing generic single-key repository unchanged.
+
+    The expense's *home* month (the month its own ``deadline`` falls in) is
+    tracked on the ``Expense`` record itself via its ``paid`` field, as
+    before; rows here only exist for *other* months of a recurring expense.
+    """
+
+    id: str
+    expense_id: str
+    month: str
+    paid: bool = False

@@ -126,3 +126,191 @@ def test_delete_success(client, sample_expense):
 def test_delete_not_found(client):
     res = client.delete("/expenses/does-not-exist")
     assert res.status_code == 404
+
+
+# --- Month-scoped listing -------------------------------------------------
+
+
+def test_list_with_month_includes_non_recurring_in_its_own_month(client):
+    expense = {
+        "description": "Gym",
+        "deadline": "2026-07-15",
+        "value": 45.0,
+        "recurrent": False,
+    }
+    client.post("/expenses", json=expense)
+
+    res = client.get("/expenses", params={"month": "2026-07"})
+    assert res.status_code == 200
+    assert len(res.json()) == 1
+
+
+def test_list_with_month_excludes_non_recurring_in_other_months(client):
+    expense = {
+        "description": "Gym",
+        "deadline": "2026-07-15",
+        "value": 45.0,
+        "recurrent": False,
+    }
+    client.post("/expenses", json=expense)
+
+    res = client.get("/expenses", params={"month": "2026-08"})
+    assert res.status_code == 200
+    assert res.json() == []
+
+
+def test_list_with_month_excludes_recurring_before_it_existed(client):
+    expense = {
+        "description": "Rent",
+        "deadline": "2026-07-15",
+        "value": 1500.0,
+        "recurrent": True,
+    }
+    client.post("/expenses", json=expense)
+
+    res = client.get("/expenses", params={"month": "2026-06"})
+    assert res.status_code == 200
+    assert res.json() == []
+
+
+def test_list_with_month_projects_recurring_deadline_forward(client):
+    expense = {
+        "description": "Rent",
+        "deadline": "2026-01-31",
+        "value": 1500.0,
+        "recurrent": True,
+    }
+    client.post("/expenses", json=expense)
+
+    # February has 28 days in 2026 (not a leap year); the 31st clamps to 28th.
+    res = client.get("/expenses", params={"month": "2026-02"})
+    assert res.status_code == 200
+    body = res.json()
+    assert len(body) == 1
+    assert body[0]["deadline"] == "2026-02-28"
+
+
+def test_list_with_invalid_month_returns_400(client):
+    res = client.get("/expenses", params={"month": "not-a-month"})
+    assert res.status_code == 400
+
+
+def test_list_with_out_of_range_month_returns_400_not_500(client):
+    """A recurring expense whose home month sorts before '2026-13' would hit
+    calendar.monthrange(2026, 13) if month weren't range-checked, raising an
+    unhandled exception instead of a clean 400."""
+    expense = {
+        "description": "Rent",
+        "deadline": "2026-01-15",
+        "value": 1500.0,
+        "recurrent": True,
+    }
+    client.post("/expenses", json=expense)
+
+    res = client.get("/expenses", params={"month": "2026-13"})
+    assert res.status_code == 400
+
+
+# --- Per-month paid/due isolation -----------------------------------------
+
+
+def test_set_paid_on_home_month_updates_base_record(client):
+    expense = {
+        "description": "Rent",
+        "deadline": "2026-07-15",
+        "value": 1500.0,
+        "recurrent": True,
+    }
+    created = client.post("/expenses", json=expense).json()
+
+    res = client.put(
+        f"/expenses/{created['id']}/paid",
+        params={"month": "2026-07"},
+        json={"paid": True},
+    )
+    assert res.status_code == 200
+    assert res.json()["paid"] is True
+    assert client.get("/expenses").json()[0]["paid"] is True
+
+
+def test_marking_one_month_paid_does_not_affect_another_month(client):
+    """The core requirement from issue #10: paid/due is tracked per month."""
+    expense = {
+        "description": "Rent",
+        "deadline": "2026-04-01",
+        "value": 1500.0,
+        "recurrent": True,
+    }
+    created = client.post("/expenses", json=expense).json()
+
+    # Mark April (the home month) paid.
+    client.put(
+        f"/expenses/{created['id']}/paid",
+        params={"month": "2026-04"},
+        json={"paid": True},
+    )
+
+    april = client.get("/expenses", params={"month": "2026-04"}).json()
+    may = client.get("/expenses", params={"month": "2026-05"}).json()
+    assert april[0]["paid"] is True
+    assert may[0]["paid"] is False  # May is unaffected by April's paid status.
+
+    # Now mark May paid instead; April should remain paid and June untouched.
+    client.put(
+        f"/expenses/{created['id']}/paid",
+        params={"month": "2026-05"},
+        json={"paid": True},
+    )
+    april_again = client.get("/expenses", params={"month": "2026-04"}).json()
+    may_again = client.get("/expenses", params={"month": "2026-05"}).json()
+    june = client.get("/expenses", params={"month": "2026-06"}).json()
+    assert april_again[0]["paid"] is True
+    assert may_again[0]["paid"] is True
+    assert june[0]["paid"] is False
+
+
+def test_set_paid_for_non_recurring_other_month_is_rejected(client):
+    expense = {
+        "description": "Gym",
+        "deadline": "2026-07-15",
+        "value": 45.0,
+        "recurrent": False,
+    }
+    created = client.post("/expenses", json=expense).json()
+
+    res = client.put(
+        f"/expenses/{created['id']}/paid",
+        params={"month": "2026-08"},
+        json={"paid": True},
+    )
+    assert res.status_code == 400
+
+
+def test_set_paid_not_found(client):
+    res = client.put(
+        "/expenses/does-not-exist/paid",
+        params={"month": "2026-07"},
+        json={"paid": True},
+    )
+    assert res.status_code == 404
+
+
+def test_set_paid_invalid_month_returns_400(client, sample_expense):
+    created = client.post("/expenses", json=sample_expense).json()
+    res = client.put(
+        f"/expenses/{created['id']}/paid",
+        params={"month": "bogus"},
+        json={"paid": True},
+    )
+    assert res.status_code == 400
+
+
+def test_paid_routes_require_authentication():
+    """Without forwarded JWT claims the month-scoped paid route is 401 too."""
+    from src.main import app
+
+    unauthenticated = TestClient(app)
+    res = unauthenticated.put(
+        "/expenses/x/paid", params={"month": "2026-07"}, json={"paid": True}
+    )
+    assert res.status_code == 401

@@ -30,7 +30,7 @@ def test_health_route_does_not_require_auth():
 class _BrokenService:
     """Service stub whose storage always fails."""
 
-    def list(self):
+    def list(self, month=None):
         raise ClientError(
             {"Error": {"Code": "InternalServerError", "Message": "boom"}}, "Scan"
         )

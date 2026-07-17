@@ -1,19 +1,22 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronRight, Wallet } from "lucide-react";
 import DeleteConfirm from "@/components/DeleteConfirm";
 import ExpenseModal from "@/components/ExpenseModal";
 import ExpenseTable from "@/components/ExpenseTable";
+import MonthNav from "@/components/MonthNav";
 import {
   createExpense,
   deleteExpense,
   listExpenses,
+  setExpensePaid,
   updateExpense,
 } from "@/lib/api";
 import { authEnabled, getIdToken, logout } from "@/lib/auth";
 import type { Expense, ExpenseInput } from "@/lib/types";
 import { todayISO } from "@/lib/status";
+import { currentYearMonth, shiftMonth } from "@/lib/month";
 
 export default function Home() {
   // Middleware only checks that an auth cookie exists, not that it's still
@@ -23,6 +26,7 @@ export default function Home() {
   // for a moment before the redirect lands.
   const [checkingAuth, setCheckingAuth] = useState(authEnabled);
 
+  const [month, setMonth] = useState(currentYearMonth());
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -54,36 +58,55 @@ export default function Home() {
     return { totalPaid, totalNotDue, totalDue };
   }, [expenses]);
 
+  // Guards against out-of-order responses: if the user pages through months
+  // quickly, an older request's response could otherwise resolve after a
+  // newer one and clobber the currently-viewed month's data.
+  const latestRequestId = useRef(0);
+
   async function refresh() {
+    const requestId = ++latestRequestId.current;
+    // Cold starts on the backend (e.g. Lambda + DB spin-up) can take a few
+    // seconds, so show a spinner while a fetch is in flight instead of
+    // flashing the "no expenses" empty state — covers both the initial load
+    // and subsequent month-navigation fetches.
+    setLoading(true);
     try {
-      setExpenses(await listExpenses());
+      const data = await listExpenses(month);
+      if (requestId === latestRequestId.current) setExpenses(data);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load expenses.");
+      if (requestId === latestRequestId.current) {
+        setError(e instanceof Error ? e.message : "Failed to load expenses.");
+      }
+    } finally {
+      if (requestId === latestRequestId.current) setLoading(false);
     }
   }
 
   useEffect(() => {
-    if (!authEnabled) {
-      // Cold starts on the backend (e.g. Lambda + DB spin-up) can take a few
-      // seconds, so show a spinner for the initial load instead of flashing
-      // the "no expenses" empty state while data is still in flight.
-      refresh().finally(() => setLoading(false));
-      return;
-    }
+    if (!authEnabled) return; // the month effect below handles this case.
     (async () => {
       const token = await getIdToken();
       if (!token) {
         window.location.href = "/login";
         return;
       }
-      // Load the real data *before* dropping the loading state, otherwise the
-      // (still-empty) table flashes for the duration of this fetch — the same
-      // flash this loading state exists to prevent.
+      // Load the real data *before* dropping the auth-checking state,
+      // otherwise the (still-empty) table flashes for the duration of this
+      // fetch — the loading spinner inside refresh() covers that instead.
       await refresh();
-      setLoading(false);
       setCheckingAuth(false);
     })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Fetches on the initial (non-auth) mount and on every subsequent month
+  // change. Skipped while auth is still resolving above, since that effect
+  // already performs (and awaits) the initial fetch itself.
+  useEffect(() => {
+    if (checkingAuth) return;
+    refresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [month]);
 
   function openCreate() {
     setEditing(null);
@@ -112,14 +135,9 @@ export default function Home() {
 
   async function handleTogglePaid(expense: Expense) {
     try {
-      const { description, deadline, value, recurrent } = expense;
-      await updateExpense(expense.id, {
-        description,
-        deadline,
-        value,
-        recurrent,
-        paid: !expense.paid,
-      });
+      // Scoped to the month currently being viewed: for a recurring expense,
+      // this only affects this month's instance (see setExpensePaid).
+      await setExpensePaid(expense.id, month, !expense.paid);
       setError(null);
       await refresh();
     } catch (e) {
@@ -130,6 +148,14 @@ export default function Home() {
   function handleLogout() {
     logout();
     window.location.href = "/login";
+  }
+
+  function goToPrevMonth() {
+    setMonth((m) => shiftMonth(m, -1));
+  }
+
+  function goToNextMonth() {
+    setMonth((m) => shiftMonth(m, 1));
   }
 
   async function handleDelete() {
@@ -262,6 +288,8 @@ export default function Home() {
         onDelete={setDeleting}
         onTogglePaid={handleTogglePaid}
       />
+
+      <MonthNav month={month} onPrev={goToPrevMonth} onNext={goToNextMonth} />
 
       <ExpenseModal
         open={showModal}

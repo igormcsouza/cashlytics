@@ -4,6 +4,7 @@ from fastapi.testclient import TestClient
 from moto import mock_aws
 
 TABLE_NAME = "test-expenses"
+STATUS_TABLE_NAME = "test-expense-status"
 
 
 @pytest.fixture(autouse=True)
@@ -32,7 +33,14 @@ def dynamodb_table(aws_credentials):
             AttributeDefinitions=[{"AttributeName": "id", "AttributeType": "S"}],
             BillingMode="PAY_PER_REQUEST",
         )
+        resource.create_table(
+            TableName=STATUS_TABLE_NAME,
+            KeySchema=[{"AttributeName": "id", "KeyType": "HASH"}],
+            AttributeDefinitions=[{"AttributeName": "id", "AttributeType": "S"}],
+            BillingMode="PAY_PER_REQUEST",
+        )
         resource.Table(TABLE_NAME).wait_until_exists()
+        resource.Table(STATUS_TABLE_NAME).wait_until_exists()
         yield resource.Table(TABLE_NAME)
         database.get_resource.cache_clear()
 
@@ -42,6 +50,13 @@ def repository(dynamodb_table):
     from src.shared.repository import DynamoDBRepository
 
     return DynamoDBRepository(TABLE_NAME)
+
+
+@pytest.fixture
+def status_repository(dynamodb_table):
+    from src.shared.repository import DynamoDBRepository
+
+    return DynamoDBRepository(STATUS_TABLE_NAME)
 
 
 ADMIN_CLAIMS = {"email": "test@cashlytics.dev", "cognito:groups": "[admin]"}

@@ -1,5 +1,6 @@
 class Config:
     EXPENSES_TABLE_BASE_NAME = "expenses"
+    EXPENSE_STATUS_TABLE_BASE_NAME = "expense-status"
     PARTITION_KEY = "id"
     DEFAULT_ENVIRONMENT = "dev"
 
@@ -18,3 +19,7 @@ class Config:
 
 def expenses_table_name(environment: str) -> str:
     return f"{environment}-{Config.EXPENSES_TABLE_BASE_NAME}"
+
+
+def expense_status_table_name(environment: str) -> str:
+    return f"{environment}-{Config.EXPENSE_STATUS_TABLE_BASE_NAME}"

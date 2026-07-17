@@ -34,6 +34,7 @@ beforeEach(() => {
   mocked.createExpense.mockResolvedValue(EXPENSES[0]);
   mocked.updateExpense.mockResolvedValue(EXPENSES[0]);
   mocked.deleteExpense.mockResolvedValue();
+  mocked.setExpensePaid.mockResolvedValue({ ...EXPENSES[0], paid: true });
 });
 
 afterEach(() => cleanup());
@@ -131,7 +132,7 @@ describe("Home", () => {
     expect(mocked.deleteExpense).not.toHaveBeenCalled();
   });
 
-  it("marks an expense as paid", async () => {
+  it("marks an expense as paid for the currently viewed month only", async () => {
     const user = userEvent.setup();
     render(<Home />);
     await screen.findByText("Rent");
@@ -140,9 +141,13 @@ describe("Home", () => {
     const payButtons = screen.getAllByRole("button", { name: "Mark as paid" });
     await user.click(payButtons[0]);
 
-    await waitFor(() => expect(mocked.updateExpense).toHaveBeenCalledTimes(1));
-    expect(mocked.updateExpense.mock.calls[0][0]).toBe("1");
-    expect(mocked.updateExpense.mock.calls[0][1]).toMatchObject({ paid: true });
+    await waitFor(() =>
+      expect(mocked.setExpensePaid).toHaveBeenCalledTimes(1),
+    );
+    const [id, month, paid] = mocked.setExpensePaid.mock.calls[0];
+    expect(id).toBe("1");
+    expect(month).toMatch(/^\d{4}-\d{2}$/);
+    expect(paid).toBe(true);
   });
 
   it("colors rows by status (overdue red, paid green)", async () => {
@@ -176,5 +181,29 @@ describe("Home", () => {
     mocked.listExpenses.mockRejectedValue(new Error("Backend down"));
     render(<Home />);
     expect(await screen.findByRole("alert")).toHaveTextContent("Backend down");
+  });
+
+  it("fetches the current month on load and navigates via the arrows", async () => {
+    const user = userEvent.setup();
+    render(<Home />);
+    await screen.findByText("Rent");
+
+    expect(mocked.listExpenses).toHaveBeenCalledTimes(1);
+    const initialMonth = mocked.listExpenses.mock.calls[0][0];
+    expect(initialMonth).toMatch(/^\d{4}-\d{2}$/);
+
+    await user.click(screen.getByRole("button", { name: "Previous month" }));
+    await waitFor(() =>
+      expect(mocked.listExpenses).toHaveBeenCalledTimes(2),
+    );
+    expect(mocked.listExpenses.mock.calls[1][0]).not.toBe(initialMonth);
+
+    await user.click(screen.getByRole("button", { name: "Next month" }));
+    await user.click(screen.getByRole("button", { name: "Next month" }));
+    await waitFor(() =>
+      expect(mocked.listExpenses).toHaveBeenCalledTimes(4),
+    );
+    // Back to the original month, then one past it.
+    expect(mocked.listExpenses.mock.calls[3][0]).not.toBe(initialMonth);
   });
 });
