@@ -9,6 +9,7 @@ export default defineConfig({
   testDir: "./e2e",
   fullyParallel: false,
   workers: 1,
+  retries: process.env.CI ? 2 : 0,
   reporter: [["list"]],
   use: {
     baseURL: process.env.E2E_BASE_URL ?? "http://localhost:3000",

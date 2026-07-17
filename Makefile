@@ -1,5 +1,5 @@
 # Local environment that mirrors production (Lambda + DynamoDB Local).
-.PHONY: up ui seed smoke logs down e2e
+.PHONY: up ui seed smoke logs down e2e e2e-full playwright
 
 CORE := dynamodb-local cognito-local backend apigw
 
@@ -36,4 +36,18 @@ down:
 e2e:
 	$(MAKE) up
 	$(MAKE) smoke
+	$(MAKE) down
+
+## Run the Playwright browser suite against an already-running stack
+## (needs `make up && make ui`; first run: `npm ci` and
+## `npx playwright install chromium` in frontend/).
+playwright:
+	cd frontend && npm run test:e2e
+
+## One-shot full E2E: core stack + UI, smoke test, Playwright suite, tear down.
+e2e-full:
+	$(MAKE) up
+	$(MAKE) smoke
+	$(MAKE) ui
+	$(MAKE) playwright
 	$(MAKE) down

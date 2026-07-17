@@ -53,7 +53,11 @@ Endpoints once up:
 - Frontend (with `make ui`): <http://localhost:3000> — log in with
   `admin@cashlytics.dev` / `password`
 
-For CI, `make e2e` brings the stack up, runs the smoke test, and tears it down.
+For CI, `make e2e` brings the stack up, runs the smoke test, and tears it down;
+`make e2e-full` additionally starts the frontend and runs the Playwright
+browser suite (`frontend/e2e/`). The pipelines gate on these: pull requests run
+CI → smoke → deploy dev, and pushes to main run CI → smoke + full E2E → deploy
+prod.
 Configuration lives in `.env.example`; the same env vars are used in AWS by
 changing only their values (e.g. unset `DYNAMODB_ENDPOINT_URL`,
 point Cognito at the real user pool instead of cognito-local).
@@ -244,10 +248,16 @@ with fake forwarded claims, the same shape API Gateway attaches in production.
 Two GitHub Actions workflows handle deployments automatically:
 
 - **`deploy-dev.yml`** — triggers on every PR opened/updated against `main`:
-  runs CI (backend + frontend tests), then deploys the `dev` stacks and posts
-  the CloudFront and API URLs as a PR comment.
-- **`deploy-prod.yml`** — triggers on merge to `main`: runs CI, then deploys
-  the `prod` stacks and sets the GitHub *production* environment URL.
+  runs CI (backend + frontend tests), then the E2E smoke test (docker stack +
+  `make smoke`), then deploys the `dev` stacks and posts the CloudFront and
+  API URLs as a PR comment.
+- **`deploy-prod.yml`** — triggers on merge to `main`: runs CI, then the E2E
+  smoke test plus the full Playwright browser suite, then deploys the `prod`
+  stacks and sets the GitHub *production* environment URL.
+
+Both reuse `e2e.yml` (`workflow_call`), which brings up the docker-compose
+stack on the runner; the `full` input adds the frontend container and the
+Playwright run.
 
 Required GitHub Actions secrets: `AWS_ACCOUNT_ID`, `AWS_REGION`,
 `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`.

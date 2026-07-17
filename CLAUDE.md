@@ -34,7 +34,7 @@ Rules:
 - Service tests use an in-memory fake implementing the `Repository` protocol — no moto/boto3. Repository/API/handler tests use moto (`dynamodb_table` fixture in `conftest.py`).
 - Only truly unreachable lines get excluded: `if __name__ == "__main__":` blocks (via `exclude_also`) and Protocol stubs (`# pragma: no cover`).
 
-Run: `cd backend && uv run pytest` (unit + coverage) · `make e2e` (full docker stack + smoke test).
+Run: `cd backend && uv run pytest` (unit + coverage) · `make e2e` (full docker stack + smoke test) · `make e2e-full` (adds the frontend + Playwright browser suite).
 
 ## Branches
 
