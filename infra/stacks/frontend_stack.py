@@ -60,7 +60,7 @@ class FrontendStack(cdk.Stack):
         fn = lambda_.Function(
             self,
             "FrontendFunction",
-            runtime=lambda_.Runtime.NODEJS_20_X,
+            runtime=lambda_.Runtime.NODEJS_24_X,
             handler="index.handler",
             code=fn_code,
             memory_size=1024,
