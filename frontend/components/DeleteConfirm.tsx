@@ -1,3 +1,4 @@
+import { Trash2 } from "lucide-react";
 import type { Expense } from "@/lib/types";
 
 interface Props {
@@ -23,7 +24,9 @@ export default function DeleteConfirm({
       }}
     >
       <div className="bg-slate-900 border border-slate-700 rounded-xl shadow-2xl shadow-black/50 p-6 w-full max-w-sm mx-4 text-center">
-        <div className="text-4xl mb-3">🗑️</div>
+        <div className="flex justify-center mb-3 text-red-500">
+          <Trash2 className="h-10 w-10" aria-hidden="true" />
+        </div>
         <h2 className="text-xl font-bold text-slate-100 mb-2">Delete Expense?</h2>
         <p className="text-slate-400 mb-6">
           Are you sure you want to delete{" "}

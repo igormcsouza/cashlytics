@@ -1,3 +1,4 @@
+import { Check, Pencil, Trash2, Undo2 } from "lucide-react";
 import type { Expense } from "@/lib/types";
 import { expenseStatus } from "@/lib/status";
 
@@ -84,7 +85,11 @@ export default function ExpenseTable({
                       expense.paid ? "Mark as unpaid" : "Mark as paid"
                     }
                   >
-                    {expense.paid ? "↩️" : "✅"}
+                    {expense.paid ? (
+                      <Undo2 className="h-4 w-4" aria-hidden="true" />
+                    ) : (
+                      <Check className="h-4 w-4" aria-hidden="true" />
+                    )}
                   </button>
                   <button
                     onClick={() => onEdit(expense)}
@@ -92,7 +97,7 @@ export default function ExpenseTable({
                     title="Edit"
                     aria-label="Edit expense"
                   >
-                    ✏️
+                    <Pencil className="h-4 w-4" aria-hidden="true" />
                   </button>
                   <button
                     onClick={() => onDelete(expense)}
@@ -100,7 +105,7 @@ export default function ExpenseTable({
                     title="Delete"
                     aria-label="Delete expense"
                   >
-                    🗑️
+                    <Trash2 className="h-4 w-4" aria-hidden="true" />
                   </button>
                 </td>
               </tr>
