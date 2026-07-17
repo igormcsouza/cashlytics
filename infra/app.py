@@ -36,6 +36,7 @@ backend = BackendStack(
     app,
     f"CashlyticsBackend-{environment}",
     table=database.table,
+    status_table=database.status_table,
     environment=environment,
     admin_emails=admin_emails,
     env=env,

@@ -37,8 +37,11 @@ async function parseError(res: Response): Promise<string> {
   }
 }
 
-export async function listExpenses(): Promise<Expense[]> {
-  const res = await authFetch(url("/expenses"));
+/** List expenses for a given `YYYY-MM` month (paid/due reflects that month). */
+export async function listExpenses(month: string): Promise<Expense[]> {
+  const res = await authFetch(
+    url(`/expenses?month=${encodeURIComponent(month)}`),
+  );
   if (!res.ok) throw new Error(await parseError(res));
   return res.json();
 }
@@ -71,4 +74,25 @@ export async function deleteExpense(id: string): Promise<void> {
   if (!res.ok && res.status !== 204) {
     throw new Error("Failed to delete expense. Please try again.");
   }
+}
+
+/**
+ * Mark a specific month's instance of an expense paid/due. For a recurring
+ * expense, this only affects `month` — other months are untouched.
+ */
+export async function setExpensePaid(
+  id: string,
+  month: string,
+  paid: boolean,
+): Promise<Expense> {
+  const res = await authFetch(
+    url(`/expenses/${id}/paid?month=${encodeURIComponent(month)}`),
+    {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ paid }),
+    },
+  );
+  if (!res.ok) throw new Error(await parseError(res));
+  return res.json();
 }

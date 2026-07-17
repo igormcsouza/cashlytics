@@ -20,6 +20,7 @@ class BackendStack(cdk.Stack):
         construct_id: str,
         *,
         table: dynamodb.Table,
+        status_table: dynamodb.Table,
         environment: str,
         admin_emails: list[str],
         **kwargs,
@@ -134,6 +135,7 @@ class BackendStack(cdk.Stack):
         )
 
         table.grant_read_write_data(fn)
+        status_table.grant_read_write_data(fn)
 
         # --- HTTP API with Cognito JWT authorizer ------------------------
         # Every /expenses* route requires a valid Cognito JWT; the Lambda

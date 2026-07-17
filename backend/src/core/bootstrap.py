@@ -1,16 +1,18 @@
-"""Create and seed the local DynamoDB table the app and tests expect.
+"""Create and seed the local DynamoDB tables the app and tests expect.
 
 Run against DynamoDB Local in development:
 
     ENVIRONMENT=dev DYNAMODB_ENDPOINT_URL=http://localhost:8000 \
         uv run python -m src.core.bootstrap
 
-The table name is composed as ``<ENVIRONMENT>-expenses`` (default ``dev``).
-In AWS the table is provisioned by the CDK stacks, not this script.
+Table names are composed as ``<ENVIRONMENT>-expenses`` and
+``<ENVIRONMENT>-expense-status`` (default ``dev``). In AWS the tables are
+provisioned by the CDK stacks, not this script.
 
 Seeding: ``seed_data.json`` (sample expenses with stable ``seed-*`` ids, so
 re-running never duplicates) is loaded **only** when ``ENVIRONMENT`` is one of
-``SEED_ENVIRONMENTS`` — never in stage/prod.
+``SEED_ENVIRONMENTS`` — never in stage/prod. The expense-status table holds
+only per-month paid/due overrides, so there's nothing to seed into it.
 """
 
 import json
@@ -22,13 +24,14 @@ from src.core.database import get_resource
 from src.shared.repository import DynamoDBRepository
 
 EXPENSES_TABLE = table_name("expenses")
+EXPENSE_STATUS_TABLE = table_name("expense-status")
 
 SEED_ENVIRONMENTS = ("dev", "local")
 SEED_FILE = Path(__file__).with_name("seed_data.json")
 
 
 def create_table(name: str = EXPENSES_TABLE) -> None:
-    """Create the expenses table with a string ``id`` partition key (idempotent)."""
+    """Create a table with a string ``id`` partition key (idempotent)."""
     client = get_resource().meta.client
     existing = client.list_tables().get("TableNames", [])
     if name in existing:
@@ -64,4 +67,5 @@ def seed_table(name: str = EXPENSES_TABLE) -> None:
 
 if __name__ == "__main__":  # pragma: no cover
     create_table()
+    create_table(EXPENSE_STATUS_TABLE)
     seed_table()
