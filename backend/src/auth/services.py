@@ -16,12 +16,23 @@ tooling that provisions cognito-local, mirroring src/core/bootstrap.py.
 """
 
 from fastapi import HTTPException, Request, status
+from fastapi.security import HTTPBearer
 
 # Must match Config.ADMIN_GROUP in infra/stacks/config.py (the CfnUserPoolGroup
 # name CDK creates). The two are in separate, independently-deployed Python
 # projects with no shared package, so this can't be a single import — if you
 # rename one, rename the other, or every admin silently starts 403ing.
 ADMIN_GROUP = "admin"
+
+# Declared purely so FastAPI documents a Bearer scheme in the OpenAPI schema —
+# that's what makes Swagger UI (/docs) render the "Authorize" button and
+# attach whatever token you paste there as an `Authorization: Bearer <token>`
+# header on "Try it out" calls. auto_error=False: it must never itself reject
+# a request. The actual enforcement point is API Gateway (and, locally,
+# apigw-proxy) validating that same header *before* the Lambda is invoked —
+# require_admin below only trusts the claims that boundary already verified,
+# it never re-reads or re-validates the header itself.
+bearer_scheme = HTTPBearer(auto_error=False)
 
 
 def _extract_claims(request: Request) -> dict | None:
