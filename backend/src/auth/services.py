@@ -15,8 +15,8 @@ src/expense/controllers.py). bootstrap.py, alongside this file, is local-only
 tooling that provisions cognito-local, mirroring src/core/bootstrap.py.
 """
 
-from fastapi import HTTPException, Request, status
-from fastapi.security import HTTPBearer
+from fastapi import Depends, HTTPException, Request, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 # Must match Config.ADMIN_GROUP in infra/stacks/config.py (the CfnUserPoolGroup
 # name CDK creates). The two are in separate, independently-deployed Python
@@ -28,11 +28,12 @@ ADMIN_GROUP = "admin"
 # that's what makes Swagger UI (/docs) render the "Authorize" button and
 # attach whatever token you paste there as an `Authorization: Bearer <token>`
 # header on "Try it out" calls. auto_error=False: it must never itself reject
-# a request. The actual enforcement point is API Gateway (and, locally,
-# apigw-proxy) validating that same header *before* the Lambda is invoked —
-# require_admin below only trusts the claims that boundary already verified,
-# it never re-reads or re-validates the header itself.
-bearer_scheme = HTTPBearer(auto_error=False)
+# a request — the actual enforcement point is API Gateway (and, locally,
+# apigw-proxy) validating that same header *before* the Lambda is invoked.
+# Taken as a parameter of require_admin below (rather than a second, separate
+# route dependency) so there's exactly one thing to depend on: FastAPI still
+# walks into it and adds its security scheme to the OpenAPI schema either way.
+_bearer_scheme = HTTPBearer(auto_error=False)
 
 
 def _extract_claims(request: Request) -> dict | None:
@@ -58,8 +59,15 @@ def groups_from_claims(claims: dict) -> list[str]:
     return [str(group).strip() for group in raw if str(group).strip()]
 
 
-def require_admin(request: Request) -> dict:
-    """FastAPI dependency: the caller must belong to the ``admin`` group."""
+def require_admin(
+    request: Request,
+    _credentials: HTTPAuthorizationCredentials | None = Depends(_bearer_scheme),
+) -> dict:
+    """FastAPI dependency: the caller must belong to the ``admin`` group.
+
+    ``_credentials`` is unused — see ``_bearer_scheme`` above. Enforcement is
+    entirely claims-based, via ``request``.
+    """
     claims = _extract_claims(request)
     if claims is None:
         raise HTTPException(
