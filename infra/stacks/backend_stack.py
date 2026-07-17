@@ -135,17 +135,6 @@ class BackendStack(cdk.Stack):
 
         table.grant_read_write_data(fn)
 
-        # Deliberately kept unused. The HTTP API below replaces this as the
-        # public entrypoint, but CloudFormation refuses to delete a resource
-        # whose cross-stack export is still imported by another *currently
-        # deployed* stack — and the live CashlyticsFrontend-prod stack was
-        # still importing this FunctionUrl's export when the switch to the
-        # HTTP API shipped. Removing this line before the frontend stack has
-        # been redeployed (and thus dropped that import) fails prod
-        # deploys with UPDATE_ROLLBACK_COMPLETE. Safe to delete once a
-        # frontend deploy has gone out on top of this commit.
-        fn.add_function_url(auth_type=lambda_.FunctionUrlAuthType.NONE)
-
         # --- HTTP API with Cognito JWT authorizer ------------------------
         # Every /expenses* route requires a valid Cognito JWT; the Lambda
         # trusts the claims API Gateway forwards in the request context and
