@@ -7,6 +7,15 @@ same translation API Gateway / a function URL performs in AWS, giving the
 frontend and the smoke test a real REST endpoint backed by the production
 Lambda handler.
 
+It also emulates the Cognito JWT authorizer that protects the HTTP API in
+AWS: requests without a Bearer token (except CORS preflights and the public
+paths — see PUBLIC_PATHS below) are rejected with 401, and the token's claims
+are forwarded to the Lambda in ``requestContext.authorizer.jwt.claims`` — the
+exact shape the backend trusts in production. The token comes from
+cognito-local; only its expiry is checked here (signature verification is API
+Gateway's job in AWS, and this proxy is a dev-only tool that keeps to the
+standard library).
+
 Standard library only — no third-party dependencies.
 
 Environment:
@@ -18,6 +27,7 @@ Environment:
 import base64
 import json
 import os
+import time
 import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlsplit
@@ -28,22 +38,62 @@ LAMBDA_RIE_URL = os.environ.get(
 )
 PORT = int(os.environ.get("PORT", "8080"))
 
+# Must match the public_paths list in infra/stacks/backend_stack.py: the
+# health route plus FastAPI's auto-generated API docs — metadata, not data,
+# no reason to require login just to browse them.
+PUBLIC_PATHS = frozenset(["/", "/docs", "/redoc", "/openapi.json"])
 
-def _build_event(method: str, raw_path: str, query: str, headers, body: bytes) -> dict:
+
+def _decode_claims(headers) -> dict | None:
+    """Claims from the Bearer token, or None when missing/expired/malformed."""
+    auth = headers.get("Authorization") or headers.get("authorization") or ""
+    if not auth.startswith("Bearer "):
+        return None
+    token = auth[len("Bearer ") :].strip()
+    try:
+        payload_b64 = token.split(".")[1]
+        payload_b64 += "=" * (-len(payload_b64) % 4)
+        claims = json.loads(base64.urlsafe_b64decode(payload_b64))
+    except Exception:
+        return None
+    if claims.get("exp") and claims["exp"] < time.time():
+        return None
+    # The real authorizer flattens list claims into "[a b]" strings; mirror
+    # that exactly. Decoded by backend/src/auth/services.py's
+    # groups_from_claims, which is the actual source of truth for this
+    # format (it must match what AWS really sends) — keep this in sync with
+    # it if either side changes.
+    return {
+        key: f"[{' '.join(map(str, value))}]" if isinstance(value, list) else value
+        for key, value in claims.items()
+    }
+
+
+def _build_event(
+    method: str,
+    raw_path: str,
+    query: str,
+    headers,
+    body: bytes,
+    claims: dict | None,
+) -> dict:
+    request_context = {
+        "http": {
+            "method": method,
+            "path": raw_path,
+            "protocol": "HTTP/1.1",
+            "sourceIp": "127.0.0.1",
+        }
+    }
+    if claims is not None:
+        request_context["authorizer"] = {"jwt": {"claims": claims}}
     return {
         "version": "2.0",
         "routeKey": "$default",
         "rawPath": raw_path,
         "rawQueryString": query,
         "headers": {k.lower(): v for k, v in headers.items()},
-        "requestContext": {
-            "http": {
-                "method": method,
-                "path": raw_path,
-                "protocol": "HTTP/1.1",
-                "sourceIp": "127.0.0.1",
-            }
-        },
+        "requestContext": request_context,
         "body": body.decode("utf-8") if body else None,
         "isBase64Encoded": False,
     }
@@ -61,13 +111,40 @@ def _invoke(event: dict) -> dict:
 class Handler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
 
+    def _reject_unauthorized(self) -> None:
+        payload = json.dumps({"message": "Unauthorized"}).encode("utf-8")
+        self.send_response(401)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(payload)))
+        # The frontend and this proxy run on different ports (different
+        # origins) locally. Without these, a cross-origin fetch() call can't
+        # even read this response's status — the browser blocks it as a CORS
+        # violation and the promise rejects with a network error instead of
+        # resolving with status 401, so the caller never gets to react to it.
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Vary", "Origin")
+        self.end_headers()
+        self.wfile.write(payload)
+
     def _proxy(self) -> None:
         split = urlsplit(self.path)
         length = int(self.headers.get("Content-Length", 0) or 0)
         body = self.rfile.read(length) if length else b""
 
+        # Mirrors the deployed API: PUBLIC_PATHS are public, CORS preflights
+        # skip auth, everything else needs a valid token whose claims are
+        # handed to the Lambda.
+        claims = _decode_claims(self.headers)
+        if (
+            claims is None
+            and self.command != "OPTIONS"
+            and split.path not in PUBLIC_PATHS
+        ):
+            self._reject_unauthorized()
+            return
+
         event = _build_event(
-            self.command, split.path, split.query, self.headers, body
+            self.command, split.path, split.query, self.headers, body, claims
         )
         try:
             result = _invoke(event)

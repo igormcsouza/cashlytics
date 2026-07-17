@@ -66,23 +66,25 @@ jobs:
       - name: Deploy database and backend
         id: deploy-backend
         working-directory: infra
+        env:
+          # Repo variable overrides the default admin users without a commit.
+          ADMIN_EMAILS: ${{ vars.ADMIN_EMAILS || 'igormcsouza@gmail.com,eilawoman@hotmail.com' }}
         run: |
           cdk deploy \
             "CashlyticsDatabase-prod" "CashlyticsBackend-prod" \
             --require-approval never \
             -c environment=prod \
+            -c admin_emails="${ADMIN_EMAILS}" \
             --outputs-file cdk-backend-outputs.json
 
-          BACKEND_URL=$(python3 - <<'PY'
+          python3 - <<'PY' >> "$GITHUB_OUTPUT"
           import json
           with open("cdk-backend-outputs.json") as f:
               outputs = json.load(f)
           stack = outputs.get("CashlyticsBackend-prod", {})
-          url = next((v for v in stack.values() if v.startswith("https://")), "")
-          print(url.rstrip("/"))
+          print(f"backend_url={stack['BackendUrl'].rstrip('/')}")
+          print(f"user_pool_client_id={stack['UserPoolClientId']}")
           PY
-          )
-          echo "backend_url=${BACKEND_URL}" >> "$GITHUB_OUTPUT"
 
       - name: Install frontend dependencies
         working-directory: frontend
@@ -92,6 +94,8 @@ jobs:
         working-directory: frontend
         env:
           NEXT_PUBLIC_API_BASE_URL: ${{ steps.deploy-backend.outputs.backend_url }}
+          NEXT_PUBLIC_COGNITO_CLIENT_ID: ${{ steps.deploy-backend.outputs.user_pool_client_id }}
+          NEXT_PUBLIC_COGNITO_REGION: ${{ secrets.AWS_REGION }}
         run: npx open-next@latest build
 
       - name: Verify OpenNext output

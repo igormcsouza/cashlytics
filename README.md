@@ -20,20 +20,24 @@ Cashlytics helps you track, analyze, and optimize your finances in one place—g
 
 The local environment mirrors production: the backend runs as the **Lambda
 container image** via the AWS Lambda Runtime Interface Emulator, fronted by a
-small **API Gateway proxy** (HTTP → Lambda events), persisting to **DynamoDB
-Local**. No MongoDB.
+small **API Gateway proxy** (HTTP → Lambda events, including the Cognito JWT
+authorizer step) persisting to **DynamoDB Local**, authenticated against
+**[cognito-local](https://github.com/jagregory/cognito-local)** — the same
+role the real Cognito user pool plays in AWS. No MongoDB, no auth bypass.
 
 **Prerequisites**: [Docker](https://docs.docker.com/get-docker/) (+ Compose v2).
 `python3` is used to run the smoke test.
 
 ```bash
-# Bring up DynamoDB Local + backend Lambda + API proxy, and create the table
+# Bring up DynamoDB Local + cognito-local + backend Lambda + API proxy;
+# create the table and the Cognito user pool/admin users
 make up
 
-# Exercise create → list → edit → delete end to end
+# Exercise login -> create -> list -> edit -> delete end to end
 make smoke
 
-# Optional: run the Next.js frontend too (http://localhost:3000)
+# Run the Next.js frontend too (http://localhost:3000) — reads the Cognito
+# client id `make up` wrote to local/.cognito.env
 make ui
 
 # Reset local data / tear everything down
@@ -45,11 +49,14 @@ Endpoints once up:
 - Backend REST API (via the proxy): <http://localhost:5000> (e.g. `/expenses`)
 - Backend RIE invocations endpoint: <http://localhost:9000>
 - DynamoDB Local: <http://localhost:8000>
-- Frontend (with `make ui`): <http://localhost:3000>
+- cognito-local: <http://localhost:9229>
+- Frontend (with `make ui`): <http://localhost:3000> — log in with
+  `admin@cashlytics.dev` / `password`
 
 For CI, `make e2e` brings the stack up, runs the smoke test, and tears it down.
 Configuration lives in `.env.example`; the same env vars are used in AWS by
-changing only their values (e.g. unset `DYNAMODB_ENDPOINT_URL`).
+changing only their values (e.g. unset `DYNAMODB_ENDPOINT_URL`,
+point Cognito at the real user pool instead of cognito-local).
 
 ## Backend development (uv)
 
@@ -160,8 +167,9 @@ Infrastructure is defined as code with the AWS CDK (Python) in `infra/`.
 Stacks are suffixed with the deployment environment (`dev` or `prod`):
 
 - `CashlyticsDatabase-{env}` — DynamoDB expenses table (`id` partition key)
-- `CashlyticsBackend-{env}` — backend Lambda (container image) behind a
-  function URL; granted least-privilege read/write on the table
+- `CashlyticsBackend-{env}` — backend Lambda (container image) behind an
+  API Gateway HTTP API protected by a Cognito JWT authorizer, plus the
+  Cognito user pool itself; granted least-privilege read/write on the table
 - `CashlyticsFrontend-{env}` — Next.js SSR Lambda (via OpenNext) + S3 bucket
   for static assets, served through a CloudFront distribution:
 
@@ -181,6 +189,55 @@ cdk synth                        # synthesize CloudFormation for all stacks
 cdk deploy --all -c environment=dev   # deploy dev (requires cdk bootstrap)
 cdk deploy --all -c environment=prod  # deploy prod
 ```
+
+## Authentication (Amazon Cognito)
+
+All access — UI and API — requires login. The pieces:
+
+- **Cognito user pool** (per environment, defined in `CashlyticsBackend-{env}`):
+  email + password sign-in only, self-sign-up disabled. Two administrator
+  users are created at deploy time and added to the `admin` group.
+- **API Gateway JWT authorizer**: every backend route rejects requests without
+  a valid Cognito token before they reach the Lambda. The FastAPI app then
+  trusts the claims API Gateway forwards (`backend/src/auth/services.py`) and
+  enforces the `admin` role — it never validates tokens itself.
+- **Frontend**: `middleware.ts` redirects to `/login` whenever the auth cookies
+  are missing; `lib/auth.ts` talks to Cognito directly (login, first-login
+  password change, silent token refresh) and `lib/api.ts` sends the id token as
+  a `Bearer` header. A logout icon button sits next to “+ Add Expense”.
+
+Admin users:
+
+- **Prod** — `igormcsouza@gmail.com` and `eilawoman@hotmail.com` by default
+  (override with the `ADMIN_EMAILS` repository variable, comma-separated, or
+  `-c admin_emails=...` when deploying manually). On the first deploy Cognito
+  emails each user a **temporary password**; the login page then asks them to
+  choose their own (`NEW_PASSWORD_REQUIRED` flow). Prod password policy:
+  12+ chars with upper/lower/digit/symbol.
+- **PR / dev environments** — `admin@cashlytics.dev` / `password` (plus
+  `admin2@cashlytics.dev`). The deploy workflow sets this as a permanent
+  password right after the backend deploy so reviewers can log in without any
+  email round-trip; the PR comment repeats the credentials.
+
+Useful operations (user pool id is in the `CashlyticsBackend-{env}` stack
+outputs):
+
+```bash
+# Re-send an expired invitation (temporary passwords last 7 days)
+aws cognito-idp admin-create-user --user-pool-id <POOL_ID> \
+  --username user@example.com --message-action RESEND
+
+# Reset a password manually
+aws cognito-idp admin-set-user-password --user-pool-id <POOL_ID> \
+  --username user@example.com --password '<NewPassword123!>' --permanent
+```
+
+Locally, docker-compose runs **cognito-local** instead of real Cognito (see
+"Running Locally" above); the backend and API gateway proxy trust its tokens
+exactly as they trust real Cognito tokens in AWS — no bypass. The backend
+*test suite* (`uv run pytest`) doesn't start any stack, so it simulates the
+authorizer directly: `tests/conftest.py`'s `WithGatewayClaims` wraps the app
+with fake forwarded claims, the same shape API Gateway attaches in production.
 
 ## CI / CD
 

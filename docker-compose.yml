@@ -1,19 +1,27 @@
 # Local environment that mirrors production:
 #   - DynamoDB Local for storage
+#   - cognito-local for authentication (email+password, admin group, silent
+#     refresh — the same flows the real Cognito user pool supports)
 #   - the backend as the Lambda container image (Step 3), run via the AWS Lambda
 #     Runtime Interface Emulator (RIE) that ships in the base image
 #   - a small API Gateway proxy that turns HTTP into Lambda events (what API
-#     Gateway / a function URL does in AWS), exposing a real REST endpoint
+#     Gateway / a function URL does in AWS), including the Cognito JWT
+#     authorizer step, exposing a real REST endpoint
 #   - the Next.js frontend (optional, `ui` profile) pointed at that endpoint
 #
 # Everything is wired with the same env vars production uses. The only local-only
-# settings are credentials and the DynamoDB/Lambda endpoints.
+# settings are credentials and the DynamoDB/Cognito/Lambda endpoints.
 services:
   dynamodb-local:
     image: amazon/dynamodb-local:latest
     command: ["-jar", "DynamoDBLocal.jar", "-inMemory", "-sharedDb"]
     ports:
       - "8000:8000"
+
+  cognito-local:
+    image: jagregory/cognito-local:latest
+    ports:
+      - "9229:9229" # also called directly by the browser (lib/auth.ts)
 
   backend:
     build: ./backend
@@ -24,11 +32,16 @@ services:
       - ENVIRONMENT=${ENVIRONMENT:-dev} # table name -> "<ENVIRONMENT>-expenses"
       - AWS_REGION=${AWS_REGION:-sa-east-1}
       - DYNAMODB_ENDPOINT_URL=http://dynamodb-local:8000
-      # Dummy credentials so boto3 is happy against DynamoDB Local.
+      - COGNITO_ENDPOINT_URL=http://cognito-local:9229
+      # Dummy credentials so boto3 is happy against DynamoDB/Cognito Local.
       - AWS_ACCESS_KEY_ID=local
       - AWS_SECRET_ACCESS_KEY=local
+    volumes:
+      # auth_bootstrap.py drops the pool/client ids here for `make ui` to read.
+      - ./local:/local-shared
     depends_on:
       - dynamodb-local
+      - cognito-local
 
   apigw:
     build: ./local/apigw-proxy
@@ -45,8 +58,11 @@ services:
     build:
       context: ./frontend
       args:
-        # Browser-side calls go to the host-exposed proxy port.
+        # Browser-side calls go to the host-exposed proxy/cognito-local ports.
         - NEXT_PUBLIC_API_BASE_URL=http://localhost:5000
+        - NEXT_PUBLIC_COGNITO_CLIENT_ID=${NEXT_PUBLIC_COGNITO_CLIENT_ID}
+        - NEXT_PUBLIC_COGNITO_REGION=${NEXT_PUBLIC_COGNITO_REGION:-sa-east-1}
+        - NEXT_PUBLIC_COGNITO_ENDPOINT=http://localhost:9229
     restart: unless-stopped
     ports:
       - "3000:3000"

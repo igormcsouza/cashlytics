@@ -10,10 +10,18 @@ import {
   listExpenses,
   updateExpense,
 } from "@/lib/api";
+import { authEnabled, getIdToken, logout } from "@/lib/auth";
 import type { Expense, ExpenseInput } from "@/lib/types";
 import { todayISO } from "@/lib/status";
 
 export default function Home() {
+  // Middleware only checks that an auth cookie exists, not that it's still
+  // valid, so a stale/expired session can slip through to this page. Hold off
+  // rendering real content until we've actually resolved a usable token (or
+  // given up and sent the browser to /login) — otherwise the table flashes
+  // for a moment before the redirect lands.
+  const [checkingAuth, setCheckingAuth] = useState(authEnabled);
+
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [error, setError] = useState<string | null>(null);
 
@@ -53,7 +61,22 @@ export default function Home() {
   }
 
   useEffect(() => {
-    refresh();
+    if (!authEnabled) {
+      refresh();
+      return;
+    }
+    (async () => {
+      const token = await getIdToken();
+      if (!token) {
+        window.location.href = "/login";
+        return;
+      }
+      // Load the real data *before* dropping the loading state, otherwise the
+      // (still-empty) table flashes for the duration of this fetch — the same
+      // flash this loading state exists to prevent.
+      await refresh();
+      setCheckingAuth(false);
+    })();
   }, []);
 
   function openCreate() {
@@ -98,6 +121,11 @@ export default function Home() {
     }
   }
 
+  function handleLogout() {
+    logout();
+    window.location.href = "/login";
+  }
+
   async function handleDelete() {
     if (!deleting) return;
     try {
@@ -110,17 +138,55 @@ export default function Home() {
     }
   }
 
+  if (checkingAuth) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="flex gap-2" role="status" aria-label="Loading">
+          <span className="w-3 h-3 rounded-full bg-indigo-400 animate-bounce [animation-delay:-0.3s]" />
+          <span className="w-3 h-3 rounded-full bg-indigo-400 animate-bounce [animation-delay:-0.15s]" />
+          <span className="w-3 h-3 rounded-full bg-indigo-400 animate-bounce" />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-4xl mx-auto py-10 px-4">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-3xl font-bold text-indigo-300">💰 Cashlytics</h1>
-        <button
-          onClick={openCreate}
-          className="bg-indigo-500 hover:bg-indigo-400 text-white font-semibold px-4 py-2 rounded-lg shadow-lg shadow-indigo-950/40 flex items-center gap-2"
-        >
-          <span className="text-xl leading-none">+</span> Add Expense
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={openCreate}
+            className="bg-indigo-500 hover:bg-indigo-400 text-white font-semibold px-4 py-2 rounded-lg shadow-lg shadow-indigo-950/40 flex items-center gap-2"
+          >
+            <span className="text-xl leading-none">+</span> Add Expense
+          </button>
+          {authEnabled && (
+            <button
+              onClick={handleLogout}
+              aria-label="Log out"
+              title="Log out"
+              className="bg-indigo-500 hover:bg-indigo-400 text-white p-2.5 rounded-lg shadow-lg shadow-indigo-950/40"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="w-5 h-5"
+                aria-hidden="true"
+              >
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                <polyline points="16 17 21 12 16 7" />
+                <line x1="21" y1="12" x2="9" y2="12" />
+              </svg>
+            </button>
+          )}
+        </div>
       </div>
 
       {error && (

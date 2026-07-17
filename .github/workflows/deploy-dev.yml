@@ -81,16 +81,27 @@ jobs:
             -c environment=${ENV_NAME} \
             --outputs-file cdk-backend-outputs.json
 
-          BACKEND_URL=$(python3 - <<'PY'
+          python3 - <<'PY' >> "$GITHUB_OUTPUT"
           import json, os
           with open("cdk-backend-outputs.json") as f:
               outputs = json.load(f)
           stack = outputs.get(f"CashlyticsBackend-{os.environ['ENV_NAME']}", {})
-          url = next((v for v in stack.values() if v.startswith("https://")), "")
-          print(url.rstrip("/"))
+          print(f"backend_url={stack['BackendUrl'].rstrip('/')}")
+          print(f"user_pool_id={stack['UserPoolId']}")
+          print(f"user_pool_client_id={stack['UserPoolClientId']}")
           PY
-          )
-          echo "backend_url=${BACKEND_URL}" >> "$GITHUB_OUTPUT"
+
+      # PR environments use a well-known password so reviewers can log in
+      # (the issue asks for easy dev credentials). Non-prod pools only.
+      - name: Set dev admin passwords
+        run: |
+          for USER in admin@cashlytics.dev admin2@cashlytics.dev; do
+            aws cognito-idp admin-set-user-password \
+              --user-pool-id "${{ steps.deploy-backend.outputs.user_pool_id }}" \
+              --username "$USER" \
+              --password "password" \
+              --permanent
+          done
 
       - name: Install frontend dependencies
         working-directory: frontend
@@ -100,6 +111,8 @@ jobs:
         working-directory: frontend
         env:
           NEXT_PUBLIC_API_BASE_URL: ${{ steps.deploy-backend.outputs.backend_url }}
+          NEXT_PUBLIC_COGNITO_CLIENT_ID: ${{ steps.deploy-backend.outputs.user_pool_client_id }}
+          NEXT_PUBLIC_COGNITO_REGION: ${{ secrets.AWS_REGION }}
         run: npx open-next@latest build
 
       - name: Verify OpenNext output
@@ -157,6 +170,8 @@ jobs:
               '|---------|-----|',
               `| Frontend | ${frontendUrl} |`,
               `| Backend API | ${backendUrl} |`,
+              '',
+              'Login: `admin@cashlytics.dev` / `password`',
               '',
               `Deployed from commit \`${sha}\``,
             ].join('\n');

@@ -6,11 +6,14 @@ exceptions into HTTP errors.
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 
+from src.auth.services import require_admin
 from src.expense.exceptions import ExpenseNotFoundError
 from src.expense.models import ExpenseIn
 from src.expense.services import ExpenseService, get_service
 
-router = APIRouter(prefix="/expenses", tags=["expenses"])
+router = APIRouter(
+    prefix="/expenses", tags=["expenses"], dependencies=[Depends(require_admin)]
+)
 
 
 @router.get("")

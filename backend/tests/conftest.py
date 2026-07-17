@@ -44,11 +44,37 @@ def repository(dynamodb_table):
     return DynamoDBRepository(TABLE_NAME)
 
 
+ADMIN_CLAIMS = {"email": "test@cashlytics.dev", "cognito:groups": "[admin]"}
+
+
+class WithGatewayClaims:
+    """ASGI wrapper simulating the API Gateway JWT authorizer.
+
+    In AWS the authorizer validates the token and forwards its claims in the
+    Lambda event; Mangum exposes that event as ``scope["aws.event"]``. Tests
+    reproduce exactly that so the app's auth dependency runs for real.
+    """
+
+    def __init__(self, app, claims):
+        self.app = app
+        self.claims = claims
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "http":
+            scope = {
+                **scope,
+                "aws.event": {
+                    "requestContext": {"authorizer": {"jwt": {"claims": self.claims}}}
+                },
+            }
+        await self.app(scope, receive, send)
+
+
 @pytest.fixture
 def client(dynamodb_table):
     from src.main import app
 
-    with TestClient(app) as c:
+    with TestClient(WithGatewayClaims(app, ADMIN_CLAIMS)) as c:
         yield c
 
 

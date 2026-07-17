@@ -223,3 +223,6 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Cognito ids auth_bootstrap.py writes for `make ui` (local/setup.sh)
+local/.cognito.env
