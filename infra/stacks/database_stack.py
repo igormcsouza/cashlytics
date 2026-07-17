@@ -16,6 +16,16 @@ class DatabaseStack(cdk.Stack):
     ) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
+        # Non-prod tables are destroyed with the stack (PR envs are ephemeral).
+        # Prod tables are retained even if the stack is ever deleted — losing
+        # expense data on a bad deploy/rollback is not an acceptable failure
+        # mode.
+        removal_policy = (
+            cdk.RemovalPolicy.RETAIN
+            if environment == "prod"
+            else cdk.RemovalPolicy.DESTROY
+        )
+
         self.table = dynamodb.Table(
             self,
             "ExpensesTable",
@@ -25,7 +35,7 @@ class DatabaseStack(cdk.Stack):
                 type=dynamodb.AttributeType.STRING,
             ),
             billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
-            removal_policy=cdk.RemovalPolicy.DESTROY,
+            removal_policy=removal_policy,
         )
 
         # Per-month paid/due status for recurring expense instances (issue #10):
@@ -41,5 +51,5 @@ class DatabaseStack(cdk.Stack):
                 type=dynamodb.AttributeType.STRING,
             ),
             billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
-            removal_policy=cdk.RemovalPolicy.DESTROY,
+            removal_policy=removal_policy,
         )

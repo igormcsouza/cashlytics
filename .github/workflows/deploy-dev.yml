@@ -82,6 +82,7 @@ jobs:
         run: |
           cdk deploy \
             "CashlyticsDatabase-${ENV_NAME}" "CashlyticsBackend-${ENV_NAME}" \
+            --exclusively \
             --require-approval never \
             -c environment=${ENV_NAME} \
             --outputs-file cdk-backend-outputs.json
@@ -98,15 +99,13 @@ jobs:
 
       # PR environments use a well-known password so reviewers can log in
       # (the issue asks for easy dev credentials). Non-prod pools only.
-      - name: Set dev admin passwords
+      - name: Set dev admin password
         run: |
-          for USER in admin@cashlytics.dev admin2@cashlytics.dev; do
-            aws cognito-idp admin-set-user-password \
-              --user-pool-id "${{ steps.deploy-backend.outputs.user_pool_id }}" \
-              --username "$USER" \
-              --password "password" \
-              --permanent
-          done
+          aws cognito-idp admin-set-user-password \
+            --user-pool-id "${{ steps.deploy-backend.outputs.user_pool_id }}" \
+            --username "admin@cashlytics.dev" \
+            --password "password" \
+            --permanent
 
       - name: Install frontend dependencies
         working-directory: frontend
@@ -138,6 +137,7 @@ jobs:
           rm -rf cdk.out
           cdk deploy \
             "CashlyticsFrontend-${ENV_NAME}" \
+            --exclusively \
             --require-approval never \
             -c environment=${ENV_NAME} \
             --outputs-file cdk-frontend-outputs.json
