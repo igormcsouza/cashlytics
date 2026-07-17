@@ -90,42 +90,44 @@ export default function ExpenseTable({
                     {expense.recurrent ? "Yes" : "No"}
                   </span>
                 </td>
-                <td className="px-4 py-3 text-center space-x-2">
-                  <button
-                    onClick={() => onTogglePaid(expense)}
-                    className={
-                      "inline-flex h-8 w-8 items-center justify-center text-white rounded text-sm font-medium " +
-                      (expense.paid
-                        ? "bg-slate-600 hover:bg-slate-500"
-                        : "bg-emerald-600 hover:bg-emerald-500")
-                    }
-                    title={expense.paid ? "Mark as unpaid" : "Mark as paid"}
-                    aria-label={
-                      expense.paid ? "Mark as unpaid" : "Mark as paid"
-                    }
-                  >
-                    {expense.paid ? (
-                      <Undo2 className="h-4 w-4" aria-hidden="true" />
-                    ) : (
-                      <Check className="h-4 w-4" aria-hidden="true" />
-                    )}
-                  </button>
-                  <button
-                    onClick={() => onEdit(expense)}
-                    className="inline-flex h-8 w-8 items-center justify-center bg-blue-700 hover:bg-blue-600 text-white rounded text-sm font-medium"
-                    title="Edit"
-                    aria-label="Edit expense"
-                  >
-                    <Pencil className="h-4 w-4" aria-hidden="true" />
-                  </button>
-                  <button
-                    onClick={() => onDelete(expense)}
-                    className="inline-flex h-8 w-8 items-center justify-center bg-red-600 hover:bg-red-500 text-white rounded text-sm font-medium"
-                    title="Delete"
-                    aria-label="Delete expense"
-                  >
-                    <Trash2 className="h-4 w-4" aria-hidden="true" />
-                  </button>
+                <td className="px-4 py-3 text-center">
+                  <div className="grid grid-cols-2 place-items-center gap-2 sm:flex sm:items-center sm:justify-center">
+                    <button
+                      onClick={() => onTogglePaid(expense)}
+                      className={
+                        "inline-flex h-8 w-8 items-center justify-center text-white rounded text-sm font-medium " +
+                        (expense.paid
+                          ? "bg-slate-600 hover:bg-slate-500"
+                          : "bg-emerald-600 hover:bg-emerald-500")
+                      }
+                      title={expense.paid ? "Mark as unpaid" : "Mark as paid"}
+                      aria-label={
+                        expense.paid ? "Mark as unpaid" : "Mark as paid"
+                      }
+                    >
+                      {expense.paid ? (
+                        <Undo2 className="h-4 w-4" aria-hidden="true" />
+                      ) : (
+                        <Check className="h-4 w-4" aria-hidden="true" />
+                      )}
+                    </button>
+                    <button
+                      onClick={() => onEdit(expense)}
+                      className="inline-flex h-8 w-8 items-center justify-center bg-blue-700 hover:bg-blue-600 text-white rounded text-sm font-medium"
+                      title="Edit"
+                      aria-label="Edit expense"
+                    >
+                      <Pencil className="h-4 w-4" aria-hidden="true" />
+                    </button>
+                    <button
+                      onClick={() => onDelete(expense)}
+                      className="col-span-2 inline-flex h-8 w-8 items-center justify-center justify-self-center bg-red-600 hover:bg-red-500 text-white rounded text-sm font-medium"
+                      title="Delete"
+                      aria-label="Delete expense"
+                    >
+                      <Trash2 className="h-4 w-4" aria-hidden="true" />
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))
