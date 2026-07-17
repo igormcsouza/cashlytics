@@ -8,6 +8,16 @@ permissions:
   contents: read
   id-token: write
 
+# Only one production environment, so there's exactly one group: rapid pushes
+# to main queue behind each other instead of racing concurrent `cdk deploy`
+# calls against the same CashlyticsBackend-prod stack. An in-flight deploy is
+# never cancelled — killing one mid-update can leave the stack rolled back or
+# stuck, and a half-applied admin user is exactly what caused this in the
+# first place (see git history around 2026-07-17 for the incident).
+concurrency:
+  group: deploy-prod
+  cancel-in-progress: false
+
 jobs:
   ci:
     name: CI
