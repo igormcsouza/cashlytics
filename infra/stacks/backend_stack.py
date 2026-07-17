@@ -136,15 +136,37 @@ class BackendStack(cdk.Stack):
         table.grant_read_write_data(fn)
 
         # Deliberately kept unused. The HTTP API below replaces this as the
-        # public entrypoint, but CloudFormation refuses to delete a resource
-        # whose cross-stack export is still imported by another *currently
-        # deployed* stack — and the live CashlyticsFrontend-prod stack was
-        # still importing this FunctionUrl's export when the switch to the
-        # HTTP API shipped. Removing this line before the frontend stack has
-        # been redeployed (and thus dropped that import) fails prod
-        # deploys with UPDATE_ROLLBACK_COMPLETE. Safe to delete once a
-        # frontend deploy has gone out on top of this commit.
-        fn.add_function_url(auth_type=lambda_.FunctionUrlAuthType.NONE)
+        # public entrypoint, but the live CashlyticsFrontend-prod stack was
+        # still importing this FunctionUrl's cross-stack export when the
+        # switch to the HTTP API shipped, and CloudFormation refuses to
+        # delete an export while another *currently deployed* stack imports
+        # it. Re-adding the resource alone isn't enough: CDK only emits the
+        # export when some other stack in the app still references it, and
+        # nothing does anymore now that the frontend uses http_api.url — so
+        # the export gets dropped from the template regardless, and the
+        # deploy still fails (see PR #20's followup). The explicit
+        # `export_name`/`CfnOutput` below pins the export in place
+        # independent of any in-app consumer, matching the exact name CDK
+        # auto-generated originally, so this stack's template is a genuine
+        # no-op for that export and the deploy stops failing.
+        #
+        # Safe to delete both the resource and this Output once a frontend
+        # deploy has gone out on top of this commit (frontend no longer
+        # imports it, so nothing will be left holding the export).
+        legacy_function_url = fn.add_function_url(
+            auth_type=lambda_.FunctionUrlAuthType.NONE
+        )
+        if is_prod:
+            cdk.CfnOutput(
+                self,
+                "ExportsOutputFnGetAttBackendFunctionFunctionUrl9AC67B19FunctionUrl8F87D627",
+                value=legacy_function_url.url,
+                export_name=(
+                    f"CashlyticsBackend-{environment}:"
+                    "ExportsOutputFnGetAttBackendFunctionFunctionUrl9AC67B19"
+                    "FunctionUrl8F87D627"
+                ),
+            )
 
         # --- HTTP API with Cognito JWT authorizer ------------------------
         # Every /expenses* route requires a valid Cognito JWT; the Lambda
