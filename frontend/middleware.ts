@@ -11,14 +11,19 @@ const REFRESH_TOKEN_COOKIE = "cashlytics_refresh_token";
 
 // Next's non-edge middleware adapter (`next start`, what this Lambda-container
 // image runs) always re-parses the Location header as an absolute URL with no
-// base and throws "Invalid URL" on a bare relative path — so this has to be
-// built from `request.url`, even though behind CloudFront the Lambda origin
-// never sees the real Host (the distribution's origin request policy strips
-// it), meaning `request.url` resolves to the origin's own raw Function URL
-// instead of the public domain. That's a known follow-up: have CloudFront
-// forward the real Host as a custom header and read that here instead.
+// base and throws "Invalid URL" on a bare relative path, so this must be
+// absolute. Behind CloudFront the Lambda origin never sees the real Host (the
+// distribution's origin request policy strips it — Function URLs reject a
+// mismatched one), so `request.url` resolves to the origin's own raw Function
+// URL instead of the public domain. A CloudFront Function
+// (infra/stacks/frontend_stack.py) forwards the real Host as `x-forwarded-host`
+// instead; fall back to the request's own host for local/docker where no such
+// function runs (AUTH_ENABLED is off there anyway, so this fallback is unused
+// in practice today).
 function redirect(request: NextRequest, path: string): NextResponse {
-  return NextResponse.redirect(new URL(path, request.url), 307);
+  const host = request.headers.get("x-forwarded-host") ?? request.nextUrl.host;
+  const url = new URL(path, `${request.nextUrl.protocol}//${host}`);
+  return NextResponse.redirect(url, 307);
 }
 
 export function middleware(request: NextRequest) {

@@ -97,6 +97,26 @@ class FrontendStack(cdk.Stack):
         )
         lambda_origin = origins.FunctionUrlOrigin(self.function_url)
 
+        # ALL_VIEWER_EXCEPT_HOST_HEADER (below) must strip Host before it
+        # reaches the Function URL origin — Lambda Function URLs reject a
+        # forwarded Host that doesn't match their own domain. That leaves the
+        # Lambda with no way to know the public CloudFront domain, which
+        # middleware.ts needs to build absolute redirect URLs. This function
+        # hands it over as a regular header instead, which the origin request
+        # policy forwards untouched since it only excludes "Host" by name.
+        forward_host_fn = cloudfront.Function(
+            self,
+            "ForwardHostHeader",
+            code=cloudfront.FunctionCode.from_inline(
+                "function handler(event) {\n"
+                "  var request = event.request;\n"
+                "  request.headers['x-forwarded-host'] = { value: request.headers.host.value };\n"
+                "  return request;\n"
+                "}"
+            ),
+            runtime=cloudfront.FunctionRuntime.JS_2_0,
+        )
+
         distribution = cloudfront.Distribution(
             self,
             "Distribution",
@@ -106,6 +126,12 @@ class FrontendStack(cdk.Stack):
                 cache_policy=cloudfront.CachePolicy.CACHING_DISABLED,
                 allowed_methods=cloudfront.AllowedMethods.ALLOW_ALL,
                 origin_request_policy=cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
+                function_associations=[
+                    cloudfront.FunctionAssociation(
+                        function=forward_host_fn,
+                        event_type=cloudfront.FunctionEventType.VIEWER_REQUEST,
+                    )
+                ],
             ),
             additional_behaviors={
                 "/_next/static/*": cloudfront.BehaviorOptions(
