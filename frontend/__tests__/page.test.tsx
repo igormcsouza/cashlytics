@@ -94,13 +94,31 @@ describe("Home", () => {
     ) as HTMLInputElement;
     await user.type(dateInput, "2026-08-01");
 
-    await user.click(screen.getByRole("button", { name: "Add Expense" }));
+    // Scoped to the modal form: the header "Add Expense" button now shares
+    // the same accessible name (via aria-label) as this submit button.
+    const submitButton = container.querySelector(
+      'form button[type="submit"]',
+    ) as HTMLButtonElement;
+    expect(submitButton).toHaveTextContent("Add Expense");
+    await user.click(submitButton);
 
     await waitFor(() => expect(mocked.createExpense).toHaveBeenCalledTimes(1));
     const arg = mocked.createExpense.mock.calls[0][0];
     expect(arg.description).toBe("Gym");
     expect(arg.value).toBe(50);
     expect(arg.deadline).toBe("2026-08-01");
+  });
+
+  it("shows the compact '+ Expense' label on the header button at all widths", async () => {
+    render(<Home />);
+    await screen.findByText("Rent");
+
+    // aria-label keeps the accessible name as "Add Expense" even though the
+    // visible label is shortened to "Expense".
+    const addButton = screen.getByRole("button", { name: "Add Expense" });
+    const label = addButton.querySelector("span:last-child");
+    expect(label).toHaveTextContent("Expense");
+    expect(label?.className ?? "").not.toContain("hidden");
   });
 
   it("opens the edit modal pre-filled and updates", async () => {
