@@ -1,4 +1,10 @@
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import Home from "@/app/page";
@@ -100,6 +106,16 @@ describe("Home", () => {
     await user.click(screen.getByRole("button", { name: "Save Changes" }));
     await waitFor(() => expect(mocked.updateExpense).toHaveBeenCalledTimes(1));
     expect(mocked.updateExpense.mock.calls[0][0]).toBe("1");
+  });
+
+  it("opens the edit modal pre-filled when a row is double-clicked", async () => {
+    render(<Home />);
+    const rentRow = (await screen.findByText("Rent")).closest("tr") as HTMLElement;
+
+    fireEvent.doubleClick(rentRow);
+
+    expect(screen.getByText("Edit Expense")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("Rent")).toBeInTheDocument();
   });
 
   it("deletes an expense after confirmation", async () => {
