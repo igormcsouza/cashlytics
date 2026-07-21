@@ -192,16 +192,18 @@ export default function Home() {
         <div className="flex items-center gap-2">
           <button
             onClick={openCreate}
-            className="bg-indigo-500 hover:bg-indigo-400 text-white font-semibold px-4 py-2 rounded-lg shadow-lg shadow-indigo-950/40 flex items-center gap-2"
+            aria-label="Add Expense"
+            className="bg-indigo-500 hover:bg-indigo-400 text-white font-semibold px-3 py-2 sm:px-4 rounded-lg shadow-lg shadow-indigo-950/40 flex items-center justify-center gap-2 shrink-0"
           >
-            <span className="text-xl leading-none">+</span> Add Expense
+            <span className="text-xl leading-none">+</span>
+            <span className="hidden sm:inline">Add Expense</span>
           </button>
           {authEnabled && (
             <button
               onClick={handleLogout}
               aria-label="Log out"
               title="Log out"
-              className="bg-indigo-500 hover:bg-indigo-400 text-white p-2.5 rounded-lg shadow-lg shadow-indigo-950/40"
+              className="bg-indigo-500 hover:bg-indigo-400 text-white p-2.5 rounded-lg shadow-lg shadow-indigo-950/40 shrink-0"
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
