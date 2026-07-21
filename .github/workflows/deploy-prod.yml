@@ -119,7 +119,7 @@ jobs:
           NEXT_PUBLIC_API_BASE_URL: ${{ steps.deploy-backend.outputs.backend_url }}
           NEXT_PUBLIC_COGNITO_CLIENT_ID: ${{ steps.deploy-backend.outputs.user_pool_client_id }}
           NEXT_PUBLIC_COGNITO_REGION: ${{ secrets.AWS_REGION }}
-        run: npx open-next@latest build
+        run: npx open-next build
 
       - name: Verify OpenNext output
         working-directory: frontend
