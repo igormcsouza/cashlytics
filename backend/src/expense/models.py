@@ -7,7 +7,26 @@ payload.
 
 import uuid
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+
+def _check_installments(current: int | None, total: int | None) -> None:
+    """Validate the (current, total) installment pair.
+
+    Both must be set or both omitted; when set, ``total`` must be at least 1
+    and ``current`` must fall within ``[1, total]``.
+    """
+    if (current is None) != (total is None):
+        raise ValueError(
+            "installment_current and installment_total must both be set or both omitted"
+        )
+    if total is not None:
+        if total < 1:
+            raise ValueError("installment_total must be >= 1")
+        if not (1 <= current <= total):
+            raise ValueError(
+                "installment_current must be between 1 and installment_total"
+            )
 
 
 class ExpenseIn(BaseModel):
@@ -20,6 +39,13 @@ class ExpenseIn(BaseModel):
     value: float
     recurrent: bool
     paid: bool = False
+    installment_current: int | None = None
+    installment_total: int | None = None
+
+    @model_validator(mode="after")
+    def _validate_installments(self):
+        _check_installments(self.installment_current, self.installment_total)
+        return self
 
 
 class Expense(BaseModel):
@@ -34,6 +60,13 @@ class Expense(BaseModel):
     value: float
     recurrent: bool
     paid: bool = False
+    installment_current: int | None = None
+    installment_total: int | None = None
+
+    @model_validator(mode="after")
+    def _validate_installments(self):
+        _check_installments(self.installment_current, self.installment_total)
+        return self
 
 
 class PaidStatusIn(BaseModel):

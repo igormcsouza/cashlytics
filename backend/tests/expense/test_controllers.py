@@ -314,3 +314,46 @@ def test_paid_routes_require_authentication():
         "/expenses/x/paid", params={"month": "2026-07"}, json={"paid": True}
     )
     assert res.status_code == 401
+
+
+# --- Installments -------------------------------------------------------
+
+
+def test_create_with_installments_success_and_roundtrips(client, sample_expense):
+    expense = {
+        **sample_expense,
+        "installment_current": 1,
+        "installment_total": 3,
+    }
+    res = client.post("/expenses", json=expense)
+    assert res.status_code == 201
+    body = res.json()
+    assert body["installment_current"] == 1
+    assert body["installment_total"] == 3
+
+    fetched = client.get("/expenses").json()[0]
+    assert fetched == body
+
+
+def test_create_with_mismatched_installments_returns_422(client, sample_expense):
+    expense = {**sample_expense, "installment_current": 5, "installment_total": 3}
+    res = client.post("/expenses", json=expense)
+    assert res.status_code == 422
+
+
+def test_list_with_month_reflects_projected_installment_current(client):
+    expense = {
+        "description": "TV",
+        "deadline": "2026-07-15",
+        "value": 300.0,
+        "recurrent": False,
+        "installment_current": 1,
+        "installment_total": 3,
+    }
+    client.post("/expenses", json=expense)
+
+    res = client.get("/expenses", params={"month": "2026-08"})
+    assert res.status_code == 200
+    body = res.json()
+    assert len(body) == 1
+    assert body[0]["installment_current"] == 2

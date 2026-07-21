@@ -14,6 +14,8 @@ const EMPTY: ExpenseInput = {
   value: 0,
   recurrent: false,
   paid: false,
+  installment_current: null,
+  installment_total: null,
 };
 
 export default function ExpenseModal({
@@ -26,8 +28,24 @@ export default function ExpenseModal({
 
   useEffect(() => {
     if (editing) {
-      const { description, deadline, value, recurrent, paid } = editing;
-      setForm({ description, deadline, value, recurrent, paid });
+      const {
+        description,
+        deadline,
+        value,
+        recurrent,
+        paid,
+        installment_current = null,
+        installment_total = null,
+      } = editing;
+      setForm({
+        description,
+        deadline,
+        value,
+        recurrent,
+        paid,
+        installment_current,
+        installment_total,
+      });
     } else {
       setForm(EMPTY);
     }
@@ -35,9 +53,29 @@ export default function ExpenseModal({
 
   if (!open) return null;
 
+  const hasInstallments = form.installment_total != null;
+
+  function toggleInstallments(checked: boolean) {
+    if (checked) {
+      setForm({
+        ...form,
+        installment_current: form.installment_current ?? 1,
+        installment_total: form.installment_total ?? 1,
+      });
+    } else {
+      setForm({ ...form, installment_current: null, installment_total: null });
+    }
+  }
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    onSubmit(form);
+    // form.installment_* is already nulled by toggleInstallments when the
+    // checkbox is off, but force it here too as a submit-time guarantee.
+    onSubmit(
+      hasInstallments
+        ? form
+        : { ...form, installment_current: null, installment_total: null },
+    );
   }
 
   return (
@@ -95,6 +133,65 @@ export default function ExpenseModal({
               className="w-full bg-slate-950 border border-slate-700 text-slate-100 placeholder:text-slate-500 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400"
               placeholder="0.00"
             />
+          </div>
+          <div>
+            <div className="flex items-center gap-3">
+              <input
+                checked={hasInstallments}
+                onChange={(e) => toggleInstallments(e.target.checked)}
+                id="has-installments"
+                type="checkbox"
+                className="w-4 h-4 accent-indigo-500"
+              />
+              <label
+                htmlFor="has-installments"
+                className="text-sm font-medium text-slate-300"
+              >
+                Has installments
+              </label>
+            </div>
+            {hasInstallments && (
+              <div className="grid grid-cols-2 gap-3 mt-3">
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-1">
+                    Current installment
+                  </label>
+                  <input
+                    value={form.installment_current ?? 1}
+                    onChange={(e) =>
+                      setForm({
+                        ...form,
+                        installment_current: parseInt(e.target.value, 10) || 1,
+                      })
+                    }
+                    type="number"
+                    min="1"
+                    step="1"
+                    required
+                    className="w-full bg-slate-950 border border-slate-700 text-slate-100 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-1">
+                    Total installments
+                  </label>
+                  <input
+                    value={form.installment_total ?? 1}
+                    onChange={(e) =>
+                      setForm({
+                        ...form,
+                        installment_total: parseInt(e.target.value, 10) || 1,
+                      })
+                    }
+                    type="number"
+                    min="1"
+                    step="1"
+                    required
+                    className="w-full bg-slate-950 border border-slate-700 text-slate-100 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400"
+                  />
+                </div>
+              </div>
+            )}
           </div>
           <div className="flex items-center gap-3">
             <input

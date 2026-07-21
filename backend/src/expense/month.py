@@ -41,3 +41,10 @@ def project_deadline(deadline: str, month: str) -> str:
 def month_status_id(expense_id: str, month: str) -> str:
     """Composite partition key for a per-month paid/due status row."""
     return f"{expense_id}#{month}"
+
+
+def months_diff(from_month: str, to_month: str) -> int:
+    """Signed number of calendar months from from_month to to_month (both YYYY-MM)."""
+    fy, fm = (int(p) for p in from_month.split("-"))
+    ty, tm = (int(p) for p in to_month.split("-"))
+    return (ty - fy) * 12 + (tm - fm)

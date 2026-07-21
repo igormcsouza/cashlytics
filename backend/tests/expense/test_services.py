@@ -7,6 +7,7 @@ No DynamoDB (real or mocked) involved: the service only knows the
 from typing import Any
 
 import pytest
+from pydantic import ValidationError
 
 from src.expense.exceptions import (
     ExpenseNotFoundError,
@@ -214,3 +215,156 @@ def test_set_paid_invalid_month_raises(service_with_status, expense_in):
     created = service_with_status.create(expense_in)
     with pytest.raises(InvalidMonthError):
         service_with_status.set_paid(created["id"], "bogus", True)
+
+
+# --- Installments -----------------------------------------------------------
+
+
+def test_installments_both_none_is_valid():
+    expense_in = ExpenseIn(
+        description="Gym", deadline="2026-07-15", value=45.0, recurrent=False
+    )
+    assert expense_in.installment_current is None
+    assert expense_in.installment_total is None
+
+
+def test_installments_only_current_set_raises():
+    with pytest.raises(ValidationError):
+        ExpenseIn(
+            description="TV",
+            deadline="2026-07-15",
+            value=100.0,
+            recurrent=False,
+            installment_current=1,
+        )
+
+
+def test_installments_only_total_set_raises():
+    with pytest.raises(ValidationError):
+        ExpenseIn(
+            description="TV",
+            deadline="2026-07-15",
+            value=100.0,
+            recurrent=False,
+            installment_total=3,
+        )
+
+
+def test_installments_total_less_than_one_raises():
+    with pytest.raises(ValidationError):
+        ExpenseIn(
+            description="TV",
+            deadline="2026-07-15",
+            value=100.0,
+            recurrent=False,
+            installment_current=1,
+            installment_total=0,
+        )
+
+
+def test_installments_current_greater_than_total_raises():
+    with pytest.raises(ValidationError):
+        ExpenseIn(
+            description="TV",
+            deadline="2026-07-15",
+            value=100.0,
+            recurrent=False,
+            installment_current=4,
+            installment_total=3,
+        )
+
+
+def test_installments_current_zero_raises():
+    with pytest.raises(ValidationError):
+        ExpenseIn(
+            description="TV",
+            deadline="2026-07-15",
+            value=100.0,
+            recurrent=False,
+            installment_current=0,
+            installment_total=3,
+        )
+
+
+def test_installment_expense_projects_across_months_then_stops(
+    service_with_status,
+):
+    expense_in = ExpenseIn(
+        description="TV",
+        deadline="2026-07-15",
+        value=300.0,
+        recurrent=False,
+        installment_current=1,
+        installment_total=3,
+    )
+    created = service_with_status.create(expense_in)
+
+    july = service_with_status.list("2026-07")
+    assert len(july) == 1
+    assert july[0]["installment_current"] == 1
+
+    august = service_with_status.list("2026-08")
+    assert len(august) == 1
+    assert august[0]["installment_current"] == 2
+    assert august[0]["deadline"] == "2026-08-15"
+
+    september = service_with_status.list("2026-09")
+    assert len(september) == 1
+    assert september[0]["installment_current"] == 3
+
+    october = service_with_status.list("2026-10")
+    assert october == []
+    assert created["installment_current"] == 1  # base record is untouched
+
+
+def test_installment_expense_independent_of_recurrent_flag(service_with_status):
+    """recurrent=False but installments set still projects into future months."""
+    expense_in = ExpenseIn(
+        description="Laptop",
+        deadline="2026-07-01",
+        value=1200.0,
+        recurrent=False,
+        installment_current=1,
+        installment_total=2,
+    )
+    service_with_status.create(expense_in)
+
+    assert len(service_with_status.list("2026-07")) == 1
+    assert len(service_with_status.list("2026-08")) == 1
+    assert service_with_status.list("2026-09") == []
+
+
+def test_installment_paid_override_independent_per_month(service_with_status):
+    expense_in = ExpenseIn(
+        description="TV",
+        deadline="2026-07-15",
+        value=300.0,
+        recurrent=False,
+        installment_current=1,
+        installment_total=3,
+    )
+    created = service_with_status.create(expense_in)
+
+    service_with_status.set_paid(created["id"], "2026-08", True)
+
+    august = service_with_status.list("2026-08")
+    september = service_with_status.list("2026-09")
+    assert august[0]["paid"] is True
+    assert september[0]["paid"] is False
+
+
+def test_set_paid_future_installment_month_for_non_recurring_succeeds(
+    service_with_status,
+):
+    expense_in = ExpenseIn(
+        description="TV",
+        deadline="2026-07-15",
+        value=300.0,
+        recurrent=False,
+        installment_current=1,
+        installment_total=3,
+    )
+    created = service_with_status.create(expense_in)
+
+    updated = service_with_status.set_paid(created["id"], "2026-08", True)
+    assert updated["paid"] is True
