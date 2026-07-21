@@ -4,6 +4,7 @@ from src.expense.month import (
     home_month,
     is_valid_month,
     month_status_id,
+    months_diff,
     project_deadline,
 )
 
@@ -41,3 +42,19 @@ def test_project_deadline_clamps_on_leap_year():
 
 def test_month_status_id():
     assert month_status_id("abc-123", "2026-07") == "abc-123#2026-07"
+
+
+def test_months_diff_same_month():
+    assert months_diff("2026-07", "2026-07") == 0
+
+
+def test_months_diff_forward_within_year():
+    assert months_diff("2026-07", "2026-10") == 3
+
+
+def test_months_diff_forward_across_year_boundary():
+    assert months_diff("2026-11", "2027-02") == 3
+
+
+def test_months_diff_backward_is_negative():
+    assert months_diff("2026-07", "2026-05") == -2

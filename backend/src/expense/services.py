@@ -14,6 +14,7 @@ from src.expense.month import (
     home_month,
     is_valid_month,
     month_status_id,
+    months_diff,
     project_deadline,
 )
 from src.expense.repositories import expense_repository, expense_status_repository
@@ -39,14 +40,18 @@ class ExpenseService:
         Without ``month`` every stored expense is returned unchanged (back-compat
         with existing callers/tests). With ``month``:
 
-        - Non-recurring expenses are only included if their own deadline falls in
-          that month.
-        - Recurring expenses are included from their own deadline's month onward
-          (a recurring expense can't have an instance before it existed). Their
+        - Non-recurring, non-installment expenses are only included if their own
+          deadline falls in that month.
+        - Recurring expenses (and installment expenses, which recur regardless of
+          the ``recurrent`` flag) are included from their own deadline's month
+          onward (an expense can't have an instance before it existed). Their
           deadline is projected onto the requested month (same day-of-month,
           clamped to the month's length), and their paid status for any month
           other than their own is looked up independently so that marking one
           month's instance paid never affects another month.
+        - Installment expenses stop appearing once the installment counter
+          (``installment_current`` plus the month offset) exceeds
+          ``installment_total``.
         """
         expenses = self.repository.list()
         if month is None:
@@ -58,27 +63,40 @@ class ExpenseService:
         result: list[dict] = []
         for expense in expenses:
             expense_home_month = home_month(expense["deadline"])
-            if not expense["recurrent"]:
+            installment_total = expense.get("installment_total")
+            installment_current = expense.get("installment_current")
+            has_installments = (
+                installment_total is not None and installment_current is not None
+            )
+            recurs = expense["recurrent"] or has_installments
+
+            if not recurs:
                 if expense_home_month == month:
                     result.append(expense)
                 continue
 
             if month < expense_home_month:
                 continue
-            if month == expense_home_month:
+
+            offset = months_diff(expense_home_month, month)
+            if has_installments and installment_current + offset > installment_total:
+                continue  # installments exhausted — no instance this month
+
+            if offset == 0:
                 result.append(expense)
                 continue
 
             status_row = self.status_repository.get(
                 month_status_id(expense["id"], month)
             )
-            result.append(
-                {
-                    **expense,
-                    "deadline": project_deadline(expense["deadline"], month),
-                    "paid": status_row["paid"] if status_row else False,
-                }
-            )
+            projected = {
+                **expense,
+                "deadline": project_deadline(expense["deadline"], month),
+                "paid": status_row["paid"] if status_row else False,
+            }
+            if has_installments:
+                projected["installment_current"] = installment_current + offset
+            result.append(projected)
         return result
 
     def create(self, expense: ExpenseIn) -> dict:
@@ -112,7 +130,10 @@ class ExpenseService:
             self.repository.save(updated)
             return updated
 
-        if not expense["recurrent"]:
+        if not expense["recurrent"] and not (
+            expense.get("installment_total") is not None
+            and expense.get("installment_current") is not None
+        ):
             raise NonRecurringExpenseMonthError(expense_id)
 
         status_id = month_status_id(expense_id, month)

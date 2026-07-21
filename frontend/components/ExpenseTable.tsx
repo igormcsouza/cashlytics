@@ -34,13 +34,14 @@ export default function ExpenseTable({
             <th className="px-4 py-3 text-center">Deadline</th>
             <th className="px-4 py-3 text-center">Value</th>
             <th className="px-4 py-3 text-center">Recurrent</th>
+            <th className="px-4 py-3 text-center">Installments</th>
             <th className="px-4 py-3 text-center">Actions</th>
           </tr>
         </thead>
         <tbody>
           {loading ? (
             <tr>
-              <td colSpan={5} className="px-4 py-10 text-center">
+              <td colSpan={6} className="px-4 py-10 text-center">
                 <div
                   role="status"
                   aria-label="Loading expenses"
@@ -58,7 +59,7 @@ export default function ExpenseTable({
           ) : expenses.length === 0 ? (
             <tr>
               <td
-                colSpan={5}
+                colSpan={6}
                 className="px-4 py-6 text-center text-slate-500"
               >
                 No expenses yet. Click &quot;Add Expense&quot; to get started.
@@ -90,6 +91,11 @@ export default function ExpenseTable({
                   >
                     {expense.recurrent ? "Yes" : "No"}
                   </span>
+                </td>
+                <td className="px-4 py-3 text-center">
+                  {expense.installment_total
+                    ? `${expense.installment_current} / ${expense.installment_total}`
+                    : "—"}
                 </td>
                 <td
                   className="px-4 py-3 text-center"

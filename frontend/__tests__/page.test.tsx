@@ -34,6 +34,17 @@ const EXPENSES: Expense[] = [
   },
 ];
 
+const INSTALLMENT_EXPENSE: Expense = {
+  id: "3",
+  description: "TV",
+  deadline: "2026-07-10",
+  value: 300,
+  recurrent: false,
+  paid: false,
+  installment_current: 2,
+  installment_total: 5,
+};
+
 beforeEach(() => {
   vi.clearAllMocks();
   mocked.listExpenses.mockResolvedValue([...EXPENSES]);
@@ -116,6 +127,44 @@ describe("Home", () => {
 
     expect(screen.getByText("Edit Expense")).toBeInTheDocument();
     expect(screen.getByDisplayValue("Rent")).toBeInTheDocument();
+  });
+
+  it("opens the modal with an installment expense pre-filled", async () => {
+    const user = userEvent.setup();
+    mocked.listExpenses.mockResolvedValue([...EXPENSES, INSTALLMENT_EXPENSE]);
+    render(<Home />);
+    await screen.findByText("TV");
+
+    const editButtons = screen.getAllByRole("button", { name: /edit expense/i });
+    // Rent, Coffee, TV -> TV is the third row.
+    await user.click(editButtons[2]);
+
+    expect(screen.getByText("Edit Expense")).toBeInTheDocument();
+    expect(
+      screen.getByRole("checkbox", { name: /has installments/i }),
+    ).toBeChecked();
+    expect(screen.getByDisplayValue("2")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("5")).toBeInTheDocument();
+  });
+
+  it("toggling off installments and submitting sends nulls", async () => {
+    const user = userEvent.setup();
+    mocked.listExpenses.mockResolvedValue([...EXPENSES, INSTALLMENT_EXPENSE]);
+    render(<Home />);
+    await screen.findByText("TV");
+
+    const editButtons = screen.getAllByRole("button", { name: /edit expense/i });
+    await user.click(editButtons[2]);
+
+    await user.click(
+      screen.getByRole("checkbox", { name: /has installments/i }),
+    );
+    await user.click(screen.getByRole("button", { name: "Save Changes" }));
+
+    await waitFor(() => expect(mocked.updateExpense).toHaveBeenCalledTimes(1));
+    const arg = mocked.updateExpense.mock.calls[0][1];
+    expect(arg.installment_current).toBeNull();
+    expect(arg.installment_total).toBeNull();
   });
 
   it("deletes an expense after confirmation", async () => {
