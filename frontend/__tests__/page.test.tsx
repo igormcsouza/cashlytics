@@ -23,6 +23,7 @@ const EXPENSES: Expense[] = [
     value: 1500,
     recurrent: true,
     paid: false,
+    category: "Housing",
   },
   {
     id: "2",
@@ -121,6 +122,52 @@ describe("Home", () => {
     expect(label?.className ?? "").not.toContain("hidden");
   });
 
+  it("renders the category select with all options", async () => {
+    const user = userEvent.setup();
+    render(<Home />);
+    await screen.findByText("Rent");
+
+    await user.click(screen.getByRole("button", { name: /add expense/i }));
+
+    const select = screen.getByLabelText("Category") as HTMLSelectElement;
+    const optionLabels = Array.from(select.options).map((o) => o.textContent);
+    expect(optionLabels).toEqual([
+      "Uncategorized",
+      "Housing",
+      "Leisure",
+      "Food",
+      "Transport",
+      "Health",
+      "Other",
+    ]);
+  });
+
+  it("selects a category and sends it when creating an expense", async () => {
+    const user = userEvent.setup();
+    const { container } = render(<Home />);
+    await screen.findByText("Rent");
+
+    await user.click(screen.getByRole("button", { name: /add expense/i }));
+
+    await user.type(screen.getByPlaceholderText("e.g. Electricity bill"), "Groceries");
+    await user.type(screen.getByPlaceholderText("0.00"), "25");
+    const dateInput = container.querySelector(
+      'input[type="date"]',
+    ) as HTMLInputElement;
+    await user.type(dateInput, "2026-08-01");
+    await user.selectOptions(screen.getByLabelText("Category"), "Food");
+
+    // Scoped to the modal form: the header "Add Expense" button now shares
+    // the same accessible name (via aria-label) as this submit button.
+    const submitButton = container.querySelector(
+      'form button[type="submit"]',
+    ) as HTMLButtonElement;
+    await user.click(submitButton);
+
+    await waitFor(() => expect(mocked.createExpense).toHaveBeenCalledTimes(1));
+    expect(mocked.createExpense.mock.calls[0][0].category).toBe("Food");
+  });
+
   it("opens the edit modal pre-filled and updates", async () => {
     const user = userEvent.setup();
     render(<Home />);
@@ -131,6 +178,9 @@ describe("Home", () => {
 
     expect(screen.getByText("Edit Expense")).toBeInTheDocument();
     expect(screen.getByDisplayValue("Rent")).toBeInTheDocument();
+    expect(
+      (screen.getByLabelText("Category") as HTMLSelectElement).value,
+    ).toBe("Housing");
 
     await user.click(screen.getByRole("button", { name: "Save Changes" }));
     await waitFor(() => expect(mocked.updateExpense).toHaveBeenCalledTimes(1));

@@ -368,3 +368,49 @@ def test_set_paid_future_installment_month_for_non_recurring_succeeds(
 
     updated = service_with_status.set_paid(created["id"], "2026-08", True)
     assert updated["paid"] is True
+
+
+# --- Category --------------------------------------------------------------
+
+
+def test_expense_in_rejects_invalid_category():
+    with pytest.raises(ValidationError):
+        ExpenseIn(
+            description="Water bill",
+            deadline="2026-07-20",
+            value=45.0,
+            recurrent=True,
+            category="Bogus",
+        )
+
+
+def test_create_with_valid_category_roundtrips(service):
+    expense_in = ExpenseIn(
+        description="Groceries",
+        deadline="2026-07-20",
+        value=45.0,
+        recurrent=False,
+        category="Food",
+    )
+    created = service.create(expense_in)
+    assert created["category"] == "Food"
+
+
+def test_expense_in_category_defaults_to_none(expense_in):
+    assert expense_in.category is None
+
+
+def test_list_returns_legacy_items_without_category_key(service):
+    """Existing stored expenses predating this field lack the key entirely;
+    ``list`` must return them unmodified with no ``KeyError``."""
+    legacy = {
+        "id": "legacy-1",
+        "description": "Old expense",
+        "deadline": "2026-07-01",
+        "value": 10.0,
+        "recurrent": False,
+        "paid": False,
+    }
+    service.repository.items[legacy["id"]] = legacy
+    assert service.list() == [legacy]
+    assert "category" not in service.list()[0]
