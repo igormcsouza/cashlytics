@@ -6,6 +6,7 @@ payload.
 """
 
 import uuid
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -29,6 +30,10 @@ def _check_installments(current: int | None, total: int | None) -> None:
             )
 
 
+EXPENSE_CATEGORIES = ("Housing", "Leisure", "Food", "Transport", "Health", "Other")
+ExpenseCategory = Literal[EXPENSE_CATEGORIES]
+
+
 class ExpenseIn(BaseModel):
     """Request body for creating/updating an expense."""
 
@@ -39,6 +44,7 @@ class ExpenseIn(BaseModel):
     value: float
     recurrent: bool
     paid: bool = False
+    category: ExpenseCategory | None = None
     installment_current: int | None = None
     installment_total: int | None = None
 
@@ -60,6 +66,7 @@ class Expense(BaseModel):
     value: float
     recurrent: bool
     paid: bool = False
+    category: ExpenseCategory | None = None
     installment_current: int | None = None
     installment_total: int | None = None
 

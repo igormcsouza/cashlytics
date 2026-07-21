@@ -31,6 +31,7 @@ export default function ExpenseTable({
         <thead className="bg-slate-800 text-indigo-200 uppercase text-xs font-semibold">
           <tr>
             <th className="px-4 py-3 text-center">Description</th>
+            <th className="px-4 py-3 text-center">Category</th>
             <th className="px-4 py-3 text-center">Deadline</th>
             <th className="px-4 py-3 text-center">Value</th>
             <th className="px-4 py-3 text-center">Recurrent</th>
@@ -41,7 +42,7 @@ export default function ExpenseTable({
         <tbody>
           {loading ? (
             <tr>
-              <td colSpan={6} className="px-4 py-10 text-center">
+              <td colSpan={7} className="px-4 py-10 text-center">
                 <div
                   role="status"
                   aria-label="Loading expenses"
@@ -59,7 +60,7 @@ export default function ExpenseTable({
           ) : expenses.length === 0 ? (
             <tr>
               <td
-                colSpan={6}
+                colSpan={7}
                 className="px-4 py-6 text-center text-slate-500"
               >
                 No expenses yet. Click &quot;Add Expense&quot; to get started.
@@ -76,6 +77,9 @@ export default function ExpenseTable({
                 }
               >
                 <td className="px-4 py-3 text-center">{expense.description}</td>
+                <td className="px-4 py-3 text-center">
+                  {expense.category ?? "—"}
+                </td>
                 <td className="px-4 py-3 text-center">{expense.deadline}</td>
                 <td className="px-4 py-3 text-center">
                   ${expense.value.toFixed(2)}

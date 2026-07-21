@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { EXPENSE_CATEGORIES } from "@/lib/types";
 import type { Expense, ExpenseInput } from "@/lib/types";
 
 interface Props {
@@ -14,6 +15,7 @@ const EMPTY: ExpenseInput = {
   value: 0,
   recurrent: false,
   paid: false,
+  category: null,
   installment_current: null,
   installment_total: null,
 };
@@ -34,6 +36,7 @@ export default function ExpenseModal({
         value,
         recurrent,
         paid,
+        category,
         installment_current = null,
         installment_total = null,
       } = editing;
@@ -43,6 +46,7 @@ export default function ExpenseModal({
         value,
         recurrent,
         paid,
+        category: category ?? null,
         installment_current,
         installment_total,
       });
@@ -104,6 +108,32 @@ export default function ExpenseModal({
               className="w-full bg-slate-950 border border-slate-700 text-slate-100 placeholder:text-slate-500 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400"
               placeholder="e.g. Electricity bill"
             />
+          </div>
+          <div>
+            <label
+              htmlFor="category"
+              className="block text-sm font-medium text-slate-300 mb-1"
+            >
+              Category
+            </label>
+            <select
+              id="category"
+              value={form.category ?? ""}
+              onChange={(e) =>
+                setForm({
+                  ...form,
+                  category: (e.target.value || null) as ExpenseInput["category"],
+                })
+              }
+              className="w-full bg-slate-950 border border-slate-700 text-slate-100 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400"
+            >
+              <option value="">Uncategorized</option>
+              {EXPENSE_CATEGORIES.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-300 mb-1">

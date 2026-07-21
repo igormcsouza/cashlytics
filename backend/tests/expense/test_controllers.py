@@ -357,3 +357,27 @@ def test_list_with_month_reflects_projected_installment_current(client):
     body = res.json()
     assert len(body) == 1
     assert body[0]["installment_current"] == 2
+
+
+# --- Category ----------------------------------------------------------
+
+
+def test_create_with_valid_category_roundtrips(client, sample_expense):
+    res = client.post("/expenses", json={**sample_expense, "category": "Food"})
+    assert res.status_code == 201
+    created = res.json()
+    assert created["category"] == "Food"
+
+    fetched = client.get("/expenses").json()[0]
+    assert fetched["category"] == "Food"
+
+
+def test_create_with_invalid_category_returns_422(client, sample_expense):
+    res = client.post("/expenses", json={**sample_expense, "category": "Bogus"})
+    assert res.status_code == 422
+
+
+def test_create_without_category_defaults_to_null(client, sample_expense):
+    res = client.post("/expenses", json=sample_expense)
+    assert res.status_code == 201
+    assert res.json()["category"] is None
