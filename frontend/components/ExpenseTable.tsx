@@ -68,6 +68,7 @@ export default function ExpenseTable({
             expenses.map((expense) => (
               <tr
                 key={expense.id}
+                onDoubleClick={() => onEdit(expense)}
                 className={
                   "border-t border-slate-800 transition " +
                   ROW_CLASS[expenseStatus(expense)]
@@ -90,8 +91,11 @@ export default function ExpenseTable({
                     {expense.recurrent ? "Yes" : "No"}
                   </span>
                 </td>
-                <td className="px-4 py-3 text-center">
-                  <div className="grid grid-cols-2 place-items-center gap-2 sm:flex sm:items-center sm:justify-center">
+                <td
+                  className="px-4 py-3 text-center"
+                  onDoubleClick={(e) => e.stopPropagation()}
+                >
+                  <div className="flex items-center justify-center gap-1.5 sm:gap-2">
                     <button
                       onClick={() => onTogglePaid(expense)}
                       className={
@@ -121,7 +125,7 @@ export default function ExpenseTable({
                     </button>
                     <button
                       onClick={() => onDelete(expense)}
-                      className="col-span-2 inline-flex h-8 w-8 items-center justify-center justify-self-center bg-red-600 hover:bg-red-500 text-white rounded text-sm font-medium"
+                      className="inline-flex h-8 w-8 items-center justify-center bg-red-600 hover:bg-red-500 text-white rounded text-sm font-medium"
                       title="Delete"
                       aria-label="Delete expense"
                     >
