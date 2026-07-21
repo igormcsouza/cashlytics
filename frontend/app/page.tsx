@@ -193,10 +193,10 @@ export default function Home() {
           <button
             onClick={openCreate}
             aria-label="Add Expense"
-            className="bg-indigo-500 hover:bg-indigo-400 text-white font-semibold px-3 py-2 sm:px-4 rounded-lg shadow-lg shadow-indigo-950/40 flex items-center justify-center gap-2 shrink-0"
+            className="bg-indigo-500 hover:bg-indigo-400 text-white font-semibold px-3 py-2.5 sm:px-4 rounded-lg shadow-lg shadow-indigo-950/40 flex items-center justify-center gap-2 shrink-0"
           >
             <span className="text-xl leading-none">+</span>
-            <span className="hidden sm:inline">Add Expense</span>
+            <span>Expense</span>
           </button>
           {authEnabled && (
             <button

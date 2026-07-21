@@ -92,15 +92,16 @@ describe("Home", () => {
     expect(arg.deadline).toBe("2026-08-01");
   });
 
-  it("collapses the header Add Expense button to icon-only on mobile", async () => {
+  it("shows the compact '+ Expense' label on the header button at all widths", async () => {
     render(<Home />);
     await screen.findByText("Rent");
 
+    // aria-label keeps the accessible name as "Add Expense" even though the
+    // visible label is shortened to "Expense".
     const addButton = screen.getByRole("button", { name: "Add Expense" });
     const label = addButton.querySelector("span:last-child");
-    expect(label).toHaveTextContent("Add Expense");
-    expect(label?.className).toContain("hidden");
-    expect(label?.className).toContain("sm:inline");
+    expect(label).toHaveTextContent("Expense");
+    expect(label?.className ?? "").not.toContain("hidden");
   });
 
   it("opens the edit modal pre-filled and updates", async () => {
