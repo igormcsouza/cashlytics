@@ -8,6 +8,7 @@ Sent.dm call happens here — that logic is covered by test_services.py.
 from fastapi.testclient import TestClient
 
 from conftest import WithGatewayClaims
+from src.reminder.exceptions import ReminderSendError
 from src.reminder.models import ReminderResult
 from src.reminder.services import get_reminder_service
 
@@ -18,6 +19,11 @@ class FakeReminderService:
 
     def run(self) -> ReminderResult:
         return self._result
+
+
+class FakeFailingReminderService:
+    def run(self) -> ReminderResult:
+        raise ReminderSendError("boom")
 
 
 def test_reminders_require_authentication():
@@ -45,5 +51,18 @@ def test_run_reminder_returns_result(client):
         res = client.post("/reminders/run")
         assert res.status_code == 200
         assert res.json() == {"sent": True, "expense_ids": ["abc"]}
+    finally:
+        app.dependency_overrides.pop(get_reminder_service, None)
+
+
+def test_run_reminder_send_failure_returns_502_not_bare_500(client):
+    """A Sent.dm failure must come back as a real error, not an unhandled 500."""
+    from src.main import app
+
+    app.dependency_overrides[get_reminder_service] = FakeFailingReminderService
+    try:
+        res = client.post("/reminders/run")
+        assert res.status_code == 502
+        assert "boom" in res.json()["detail"]
     finally:
         app.dependency_overrides.pop(get_reminder_service, None)

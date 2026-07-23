@@ -7,9 +7,10 @@ This exists for manual QA/ops — resending on demand without waiting for the
 schedule.
 """
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 
 from src.auth.services import require_admin
+from src.reminder.exceptions import ReminderSendError
 from src.reminder.models import ReminderResult
 from src.reminder.services import ReminderService, get_reminder_service
 
@@ -22,4 +23,7 @@ router = APIRouter(
 def run_reminder(
     service: ReminderService = Depends(get_reminder_service),
 ) -> ReminderResult:
-    return service.run()
+    try:
+        return service.run()
+    except ReminderSendError as exc:
+        raise HTTPException(status_code=502, detail=str(exc))
