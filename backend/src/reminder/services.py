@@ -29,7 +29,7 @@ class ReminderService:
         self.send_reminder = send_reminder
 
     def run(self, today: date | None = None) -> ReminderResult:
-        """Send every admin with a phone number one WhatsApp message listing
+        """Send every admin with a phone number one reminder message listing
         every unpaid expense due tomorrow.
 
         Sends nothing if none are due (and never calls Cognito in that case).

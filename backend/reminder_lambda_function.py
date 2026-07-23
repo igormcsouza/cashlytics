@@ -1,4 +1,4 @@
-"""AWS Lambda entrypoint for the daily WhatsApp reminder job.
+"""AWS Lambda entrypoint for the daily reminder job.
 
 Triggered by an EventBridge scheduled rule (see ``ReminderFunction`` in
 ``infra/stacks/backend_stack.py``), not API Gateway — no Mangum wrapping here,

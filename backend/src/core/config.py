@@ -9,7 +9,6 @@ Environment variables:
     ENVIRONMENT            Deployment environment, prefixed to table names
                            (default: dev), e.g. ``prod`` -> ``prod-expenses``
     SENTDM_API_KEY         Sent.dm API key (reminder domain)
-    SENTDM_TEMPLATE_ID     Sent.dm WhatsApp template id (reminder domain)
     COGNITO_USER_POOL_ID   Cognito user pool id (reminder domain reads each
                            admin's phone_number attribute from this pool)
 
@@ -45,11 +44,6 @@ def table_name(base: str) -> str:
 def sentdm_api_key() -> str:
     """Sent.dm API key, sent as the ``x-api-key`` header."""
     return os.environ.get("SENTDM_API_KEY", "")
-
-
-def sentdm_template_id() -> str:
-    """Sent.dm WhatsApp template id used for the daily reminder message."""
-    return os.environ.get("SENTDM_TEMPLATE_ID", "")
 
 
 def cognito_user_pool_id() -> str:

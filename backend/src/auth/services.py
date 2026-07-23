@@ -89,7 +89,7 @@ def list_admin_phone_numbers(user_pool_id: str) -> list[str]:
     """Phone numbers of every Cognito user in the ``admin`` group.
 
     Users without a ``phone_number`` attribute set are skipped rather than
-    raising — not every admin necessarily wants WhatsApp reminders.
+    raising — not every admin necessarily wants reminders.
     """
     client = boto3.client("cognito-idp", region_name=aws_region())
     numbers = []
