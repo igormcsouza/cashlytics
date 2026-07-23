@@ -126,6 +126,18 @@ class BackendStack(cdk.Stack):
             os.path.join(os.path.dirname(__file__), "..", "..", "backend")
         )
 
+        # Shared by both Lambdas below: BackendFunction runs the reminder
+        # domain's own code too (the manual POST /reminders/run trigger lives
+        # in the same FastAPI app), so it needs the exact same reminder
+        # config/permissions as the scheduled ReminderFunction — not just a
+        # subset — or ReminderService.run() fails there in a way no local
+        # test catches (unit tests fake list_recipients/send_reminder
+        # entirely; cdk synth only checked ReminderFunction's own env).
+        reminder_env = {
+            Config.ENV_SENTDM_API_KEY: sentdm_api_key,
+            "COGNITO_USER_POOL_ID": user_pool.user_pool_id,
+        }
+
         fn = lambda_.DockerImageFunction(
             self,
             "BackendFunction",
@@ -134,11 +146,17 @@ class BackendStack(cdk.Stack):
             timeout=cdk.Duration.seconds(30),
             environment={
                 Config.ENV_ENVIRONMENT: environment,
+                **reminder_env,
             },
         )
 
         table.grant_read_write_data(fn)
         status_table.grant_read_write_data(fn)
+        # Reads each admin's phone_number (POST /reminders/run) to find who to
+        # message — the pool already includes phone_number in its schema by
+        # default (every Cognito pool does, whether or not
+        # standard_attributes is set).
+        user_pool.grant(fn, "cognito-idp:ListUsersInGroup")
 
         # --- Reminder Lambda (scheduled, no HTTP trigger) -----------------
         # Same image as BackendFunction, different CMD: a daily EventBridge
@@ -154,15 +172,11 @@ class BackendStack(cdk.Stack):
             timeout=cdk.Duration.seconds(30),
             environment={
                 Config.ENV_ENVIRONMENT: environment,
-                Config.ENV_SENTDM_API_KEY: sentdm_api_key,
-                "COGNITO_USER_POOL_ID": user_pool.user_pool_id,
+                **reminder_env,
             },
         )
         table.grant_read_data(reminder_fn)
         status_table.grant_read_data(reminder_fn)
-        # Reads each admin's phone_number to find who to message — the pool
-        # already includes phone_number in its schema by default (every
-        # Cognito pool does, whether or not standard_attributes is set).
         user_pool.grant(reminder_fn, "cognito-idp:ListUsersInGroup")
 
         # 12:00 UTC ~= 09:00 BRT (sa-east-1's local time), once a day. Checks
