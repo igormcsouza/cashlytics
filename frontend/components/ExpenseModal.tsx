@@ -16,6 +16,7 @@ const EMPTY: ExpenseInput = {
   recurrent: false,
   paid: false,
   category: null,
+  observations: null,
   installment_current: null,
   installment_total: null,
 };
@@ -37,6 +38,7 @@ export default function ExpenseModal({
         recurrent,
         paid,
         category,
+        observations,
         installment_current = null,
         installment_total = null,
       } = editing;
@@ -47,6 +49,7 @@ export default function ExpenseModal({
         recurrent,
         paid,
         category: category ?? null,
+        observations: observations ?? null,
         installment_current,
         installment_total,
       });
@@ -134,6 +137,24 @@ export default function ExpenseModal({
                 </option>
               ))}
             </select>
+          </div>
+          <div>
+            <label
+              htmlFor="observations"
+              className="block text-sm font-medium text-slate-300 mb-1"
+            >
+              Observations
+            </label>
+            <textarea
+              id="observations"
+              value={form.observations ?? ""}
+              onChange={(e) =>
+                setForm({ ...form, observations: e.target.value || null })
+              }
+              rows={3}
+              className="w-full bg-slate-950 border border-slate-700 text-slate-100 placeholder:text-slate-500 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400"
+              placeholder="Payment link, login info, notes…"
+            />
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-300 mb-1">

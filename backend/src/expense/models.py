@@ -45,6 +45,7 @@ class ExpenseIn(BaseModel):
     recurrent: bool
     paid: bool = False
     category: ExpenseCategory | None = None
+    observations: str | None = None
     installment_current: int | None = None
     installment_total: int | None = None
 
@@ -67,6 +68,7 @@ class Expense(BaseModel):
     recurrent: bool
     paid: bool = False
     category: ExpenseCategory | None = None
+    observations: str | None = None
     installment_current: int | None = None
     installment_total: int | None = None
 

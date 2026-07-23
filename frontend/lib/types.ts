@@ -17,6 +17,7 @@ export interface Expense {
   recurrent: boolean;
   paid: boolean;
   category?: ExpenseCategory | null;
+  observations?: string | null;
   installment_current?: number | null;
   installment_total?: number | null;
 }
