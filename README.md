@@ -109,6 +109,28 @@ Configuration comes from environment variables:
 - `AWS_REGION` — AWS region (default `sa-east-1`)
 - `DYNAMODB_ENDPOINT_URL` — endpoint override for DynamoDB Local in dev; leave
   **unset** in AWS so the SDK uses the real DynamoDB endpoint
+- `SENTDM_API_KEY`, `SENTDM_TEMPLATE_ID`, `REMINDER_WHATSAPP_TO` — used by the
+  `reminder` domain (see below) to send the daily WhatsApp reminder via
+  [Sent.dm](https://www.sent.dm); unused (safe to leave unset) unless you're
+  running the reminder job
+
+## WhatsApp reminders (`reminder` domain)
+
+The day before an expense's deadline, if it's still unpaid, a scheduled job
+sends one WhatsApp message listing every such expense (via Sent.dm), including
+each one's `observations` (e.g. payment/PIX details). It reuses
+`ExpenseService.list(month)` to resolve due dates/paid status for recurring
+and installment expenses the same way the API does.
+
+Two entrypoints run the same `ReminderService.run()`:
+
+- `POST /reminders/run` (admin-only) — manual trigger, for QA/ops
+- `backend/reminder_lambda_function.py` — invoked daily by an EventBridge
+  scheduled rule in AWS (see "Infrastructure" below); not wrapped in Mangum,
+  since it's not an HTTP event
+
+`src/reminder/sentdm_client.py` wraps the official `sentdm` SDK behind a
+narrow interface so the domain layer never imports it directly.
 
 ## Backend as a Lambda container
 
@@ -169,7 +191,10 @@ Stacks are suffixed with the deployment environment (`dev` or `prod`):
 - `CashlyticsDatabase-{env}` — DynamoDB expenses table (`id` partition key)
 - `CashlyticsBackend-{env}` — backend Lambda (container image) behind an
   API Gateway HTTP API protected by a Cognito JWT authorizer, plus the
-  Cognito user pool itself; granted least-privilege read/write on the table
+  Cognito user pool itself; granted least-privilege read/write on the table.
+  Also provisions a second Lambda (`ReminderFunction`, same image, different
+  `CMD`) invoked daily by an EventBridge rule, granted read-only access —
+  see "WhatsApp reminders" above
 - `CashlyticsFrontend-{env}` — Next.js SSR Lambda (via OpenNext) + S3 bucket
   for static assets, served through a CloudFront distribution:
 

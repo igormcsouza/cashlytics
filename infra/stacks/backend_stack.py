@@ -7,6 +7,8 @@ from aws_cdk import aws_apigatewayv2_authorizers as apigwv2_authorizers
 from aws_cdk import aws_apigatewayv2_integrations as apigwv2_integrations
 from aws_cdk import aws_cognito as cognito
 from aws_cdk import aws_dynamodb as dynamodb
+from aws_cdk import aws_events as events
+from aws_cdk import aws_events_targets as events_targets
 from aws_cdk import aws_lambda as lambda_
 from constructs import Construct
 
@@ -23,6 +25,9 @@ class BackendStack(cdk.Stack):
         status_table: dynamodb.Table,
         environment: str,
         admin_emails: list[str],
+        sentdm_api_key: str = "",
+        sentdm_template_id: str = "",
+        reminder_whatsapp_to: str = "",
         **kwargs,
     ) -> None:
         super().__init__(scope, construct_id, **kwargs)
@@ -136,6 +141,37 @@ class BackendStack(cdk.Stack):
 
         table.grant_read_write_data(fn)
         status_table.grant_read_write_data(fn)
+
+        # --- Reminder Lambda (scheduled, no HTTP trigger) -----------------
+        # Same image as BackendFunction, different CMD: a daily EventBridge
+        # rule invokes it directly (no API Gateway, no Mangum). Read-only —
+        # it only lists expenses and sends a WhatsApp message, never writes.
+        reminder_fn = lambda_.DockerImageFunction(
+            self,
+            "ReminderFunction",
+            code=lambda_.DockerImageCode.from_image_asset(
+                backend_dir, cmd=["reminder_lambda_function.handler"]
+            ),
+            memory_size=512,
+            timeout=cdk.Duration.seconds(30),
+            environment={
+                Config.ENV_ENVIRONMENT: environment,
+                Config.ENV_SENTDM_API_KEY: sentdm_api_key,
+                Config.ENV_SENTDM_TEMPLATE_ID: sentdm_template_id,
+                Config.ENV_REMINDER_WHATSAPP_TO: reminder_whatsapp_to,
+            },
+        )
+        table.grant_read_data(reminder_fn)
+        status_table.grant_read_data(reminder_fn)
+
+        # 12:00 UTC ~= 09:00 BRT (sa-east-1's local time), once a day. Checks
+        # for expenses due tomorrow that are still unpaid.
+        events.Rule(
+            self,
+            "ReminderSchedule",
+            schedule=events.Schedule.cron(minute="0", hour="12"),
+            targets=[events_targets.LambdaFunction(reminder_fn)],
+        )
 
         # --- HTTP API with Cognito JWT authorizer ------------------------
         # Every /expenses* route requires a valid Cognito JWT; the Lambda

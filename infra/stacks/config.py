@@ -7,6 +7,9 @@ class Config:
     ENV_ENVIRONMENT = "ENVIRONMENT"
     ENV_DYNAMO_ENDPOINT = "DYNAMODB_ENDPOINT_URL"
     ENV_API_BASE_URL = "NEXT_PUBLIC_API_BASE_URL"
+    ENV_SENTDM_API_KEY = "SENTDM_API_KEY"
+    ENV_SENTDM_TEMPLATE_ID = "SENTDM_TEMPLATE_ID"
+    ENV_REMINDER_WHATSAPP_TO = "REMINDER_WHATSAPP_TO"
 
     # Cognito role with full access to the app. Must match ADMIN_GROUP in
     # backend/src/auth/services.py — separate, independently-deployed Python
