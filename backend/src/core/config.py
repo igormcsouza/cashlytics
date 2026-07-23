@@ -10,7 +10,8 @@ Environment variables:
                            (default: dev), e.g. ``prod`` -> ``prod-expenses``
     SENTDM_API_KEY         Sent.dm API key (reminder domain)
     SENTDM_TEMPLATE_ID     Sent.dm WhatsApp template id (reminder domain)
-    REMINDER_WHATSAPP_TO   Destination phone number for reminders (E.164)
+    COGNITO_USER_POOL_ID   Cognito user pool id (reminder domain reads each
+                           admin's phone_number attribute from this pool)
 
 Values are read lazily (at call time, not import time) so tests and tooling can
 adjust the environment without re-importing modules.
@@ -51,6 +52,6 @@ def sentdm_template_id() -> str:
     return os.environ.get("SENTDM_TEMPLATE_ID", "")
 
 
-def reminder_whatsapp_to() -> str:
-    """Destination phone number (E.164) for the daily reminder message."""
-    return os.environ.get("REMINDER_WHATSAPP_TO", "")
+def cognito_user_pool_id() -> str:
+    """Cognito user pool id the reminder domain reads admin phone numbers from."""
+    return os.environ.get("COGNITO_USER_POOL_ID", "")

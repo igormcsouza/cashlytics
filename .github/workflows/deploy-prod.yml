@@ -88,7 +88,6 @@ jobs:
           ADMIN_EMAILS: ${{ vars.ADMIN_EMAILS || 'igormcsouza@gmail.com,eilawoman@hotmail.com' }}
           SENTDM_API_KEY: ${{ secrets.SENTDM_API_KEY }}
           SENTDM_TEMPLATE_ID: ${{ secrets.SENTDM_TEMPLATE_ID }}
-          REMINDER_WHATSAPP_TO: ${{ secrets.REMINDER_WHATSAPP_TO }}
         run: |
           # --exclusively: FrontendStack references backend.http_api.url, so
           # without this flag `cdk deploy CashlyticsFrontend-prod` below would
@@ -103,7 +102,6 @@ jobs:
             -c admin_emails="${ADMIN_EMAILS}" \
             -c sentdm_api_key="${SENTDM_API_KEY}" \
             -c sentdm_template_id="${SENTDM_TEMPLATE_ID}" \
-            -c reminder_whatsapp_to="${REMINDER_WHATSAPP_TO}" \
             --outputs-file cdk-backend-outputs.json
 
           python3 - <<'PY' >> "$GITHUB_OUTPUT"

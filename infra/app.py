@@ -27,10 +27,10 @@ admin_emails: list[str] = [
 
 # Reminder domain (WhatsApp via Sent.dm). Left empty for local/PR/dev
 # deploys, which have no need to actually send messages; only prod deploys
-# supply real values, sourced from GitHub secrets, via -c.
+# supply real values, sourced from GitHub secrets, via -c. Recipients come
+# from Cognito (each admin's phone_number attribute), not a context value.
 sentdm_api_key: str = app.node.try_get_context("sentdm_api_key") or ""
 sentdm_template_id: str = app.node.try_get_context("sentdm_template_id") or ""
-reminder_whatsapp_to: str = app.node.try_get_context("reminder_whatsapp_to") or ""
 
 database = DatabaseStack(
     app,
@@ -48,7 +48,6 @@ backend = BackendStack(
     admin_emails=admin_emails,
     sentdm_api_key=sentdm_api_key,
     sentdm_template_id=sentdm_template_id,
-    reminder_whatsapp_to=reminder_whatsapp_to,
     env=env,
 )
 

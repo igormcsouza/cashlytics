@@ -109,18 +109,29 @@ Configuration comes from environment variables:
 - `AWS_REGION` — AWS region (default `sa-east-1`)
 - `DYNAMODB_ENDPOINT_URL` — endpoint override for DynamoDB Local in dev; leave
   **unset** in AWS so the SDK uses the real DynamoDB endpoint
-- `SENTDM_API_KEY`, `SENTDM_TEMPLATE_ID`, `REMINDER_WHATSAPP_TO` — used by the
-  `reminder` domain (see below) to send the daily WhatsApp reminder via
+- `SENTDM_API_KEY`, `SENTDM_TEMPLATE_ID` — used by the `reminder` domain (see
+  below) to send the daily WhatsApp reminder via
   [Sent.dm](https://www.sent.dm); unused (safe to leave unset) unless you're
   running the reminder job
+- `COGNITO_USER_POOL_ID` — which Cognito user pool the reminder job reads
+  admin phone numbers from; set automatically by CDK, not something you
+  configure by hand
 
 ## WhatsApp reminders (`reminder` domain)
 
 The day before an expense's deadline, if it's still unpaid, a scheduled job
-sends one WhatsApp message listing every such expense (via Sent.dm), including
-each one's `observations` (e.g. payment/PIX details). It reuses
-`ExpenseService.list(month)` to resolve due dates/paid status for recurring
-and installment expenses the same way the API does.
+sends every admin with a phone number one WhatsApp message listing every such
+expense (via Sent.dm), including each one's `observations` (e.g. payment/PIX
+details). It reuses `ExpenseService.list(month)` to resolve due dates/paid
+status for recurring and installment expenses the same way the API does.
+
+Recipients come from Cognito, not a config value: `src/auth/services.py`'s
+`list_admin_phone_numbers` lists every user in the `admin` group and reads
+each one's `phone_number` attribute (skipping anyone who hasn't set one).
+Every Cognito user pool supports `phone_number` out of the box — it doesn't
+need to be declared in CDK's `standard_attributes` — so setting it is just a
+one-time `aws cognito-idp admin-update-user-attributes ... Name=phone_number,Value=+...`
+per admin, not a redeploy.
 
 Two entrypoints run the same `ReminderService.run()`:
 

@@ -27,7 +27,6 @@ class BackendStack(cdk.Stack):
         admin_emails: list[str],
         sentdm_api_key: str = "",
         sentdm_template_id: str = "",
-        reminder_whatsapp_to: str = "",
         **kwargs,
     ) -> None:
         super().__init__(scope, construct_id, **kwargs)
@@ -158,11 +157,15 @@ class BackendStack(cdk.Stack):
                 Config.ENV_ENVIRONMENT: environment,
                 Config.ENV_SENTDM_API_KEY: sentdm_api_key,
                 Config.ENV_SENTDM_TEMPLATE_ID: sentdm_template_id,
-                Config.ENV_REMINDER_WHATSAPP_TO: reminder_whatsapp_to,
+                "COGNITO_USER_POOL_ID": user_pool.user_pool_id,
             },
         )
         table.grant_read_data(reminder_fn)
         status_table.grant_read_data(reminder_fn)
+        # Reads each admin's phone_number to find who to message — the pool
+        # already includes phone_number in its schema by default (every
+        # Cognito pool does, whether or not standard_attributes is set).
+        user_pool.grant(reminder_fn, "cognito-idp:ListUsersInGroup")
 
         # 12:00 UTC ~= 09:00 BRT (sa-east-1's local time), once a day. Checks
         # for expenses due tomorrow that are still unpaid.
