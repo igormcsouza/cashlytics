@@ -24,6 +24,7 @@ const EXPENSES: Expense[] = [
     recurrent: true,
     paid: false,
     category: "Housing",
+    observations: "Pay via portal.example.com",
   },
   {
     id: "2",
@@ -168,6 +169,35 @@ describe("Home", () => {
     expect(mocked.createExpense.mock.calls[0][0].category).toBe("Food");
   });
 
+  it("types observations and sends them when creating an expense", async () => {
+    const user = userEvent.setup();
+    const { container } = render(<Home />);
+    await screen.findByText("Rent");
+
+    await user.click(screen.getByRole("button", { name: /add expense/i }));
+
+    await user.type(screen.getByPlaceholderText("e.g. Electricity bill"), "Internet");
+    await user.type(screen.getByPlaceholderText("0.00"), "60");
+    const dateInput = container.querySelector(
+      'input[type="date"]',
+    ) as HTMLInputElement;
+    await user.type(dateInput, "2026-08-01");
+    await user.type(
+      screen.getByLabelText("Observations"),
+      "Pay via bank transfer, ref #123",
+    );
+
+    const submitButton = container.querySelector(
+      'form button[type="submit"]',
+    ) as HTMLButtonElement;
+    await user.click(submitButton);
+
+    await waitFor(() => expect(mocked.createExpense).toHaveBeenCalledTimes(1));
+    expect(mocked.createExpense.mock.calls[0][0].observations).toBe(
+      "Pay via bank transfer, ref #123",
+    );
+  });
+
   it("opens the edit modal pre-filled and updates", async () => {
     const user = userEvent.setup();
     render(<Home />);
@@ -181,6 +211,9 @@ describe("Home", () => {
     expect(
       (screen.getByLabelText("Category") as HTMLSelectElement).value,
     ).toBe("Housing");
+    expect(
+      (screen.getByLabelText("Observations") as HTMLTextAreaElement).value,
+    ).toBe("Pay via portal.example.com");
 
     await user.click(screen.getByRole("button", { name: "Save Changes" }));
     await waitFor(() => expect(mocked.updateExpense).toHaveBeenCalledTimes(1));

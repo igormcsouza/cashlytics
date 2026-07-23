@@ -414,3 +414,38 @@ def test_list_returns_legacy_items_without_category_key(service):
     service.repository.items[legacy["id"]] = legacy
     assert service.list() == [legacy]
     assert "category" not in service.list()[0]
+
+
+# --- Observations ------------------------------------------------------------
+
+
+def test_create_with_observations_roundtrips(service):
+    expense_in = ExpenseIn(
+        description="Rent",
+        deadline="2026-07-20",
+        value=1200.0,
+        recurrent=True,
+        observations="Pay via portal.example.com, login admin",
+    )
+    created = service.create(expense_in)
+    assert created["observations"] == "Pay via portal.example.com, login admin"
+
+
+def test_expense_in_observations_defaults_to_none(expense_in):
+    assert expense_in.observations is None
+
+
+def test_list_returns_legacy_items_without_observations_key(service):
+    """Existing stored expenses predating this field lack the key entirely;
+    ``list`` must return them unmodified with no ``KeyError``."""
+    legacy = {
+        "id": "legacy-2",
+        "description": "Old expense",
+        "deadline": "2026-07-01",
+        "value": 10.0,
+        "recurrent": False,
+        "paid": False,
+    }
+    service.repository.items[legacy["id"]] = legacy
+    assert service.list() == [legacy]
+    assert "observations" not in service.list()[0]

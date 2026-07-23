@@ -381,3 +381,25 @@ def test_create_without_category_defaults_to_null(client, sample_expense):
     res = client.post("/expenses", json=sample_expense)
     assert res.status_code == 201
     assert res.json()["category"] is None
+
+
+# --- Observations --------------------------------------------------------
+
+
+def test_create_with_observations_roundtrips(client, sample_expense):
+    res = client.post(
+        "/expenses",
+        json={**sample_expense, "observations": "Pay via bank transfer, ref #123"},
+    )
+    assert res.status_code == 201
+    created = res.json()
+    assert created["observations"] == "Pay via bank transfer, ref #123"
+
+    fetched = client.get("/expenses").json()[0]
+    assert fetched["observations"] == "Pay via bank transfer, ref #123"
+
+
+def test_create_without_observations_defaults_to_null(client, sample_expense):
+    res = client.post("/expenses", json=sample_expense)
+    assert res.status_code == 201
+    assert res.json()["observations"] is None
