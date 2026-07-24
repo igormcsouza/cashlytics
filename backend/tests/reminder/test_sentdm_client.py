@@ -43,6 +43,7 @@ class FakeSentClient:
 @pytest.fixture(autouse=True)
 def clear_client_cache(monkeypatch):
     monkeypatch.setenv("SENTDM_API_KEY", "test-key")
+    monkeypatch.setenv("SENTDM_TEMPLATE_ID", "tmpl-123")
     sentdm_client._get_client.cache_clear()
     yield
     sentdm_client._get_client.cache_clear()
@@ -60,7 +61,8 @@ def test_send_reminder_returns_message_id(monkeypatch):
     call = fake_messages.calls[0]
     assert call["to"] == ["+15550001111"]
     assert call["channel"] == ["sms"]
-    assert call["text"] == "hello"
+    assert call["template"]["id"] == "tmpl-123"
+    assert call["template"]["parameters"] == {"message": "hello"}
 
 
 def test_send_reminder_wraps_sdk_error(monkeypatch):

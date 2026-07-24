@@ -26,6 +26,7 @@ class BackendStack(cdk.Stack):
         environment: str,
         admin_emails: list[str],
         sentdm_api_key: str = "",
+        sentdm_template_id: str = "",
         **kwargs,
     ) -> None:
         super().__init__(scope, construct_id, **kwargs)
@@ -135,6 +136,7 @@ class BackendStack(cdk.Stack):
         # entirely; cdk synth only checked ReminderFunction's own env).
         reminder_env = {
             Config.ENV_SENTDM_API_KEY: sentdm_api_key,
+            Config.ENV_SENTDM_TEMPLATE_ID: sentdm_template_id,
             "COGNITO_USER_POOL_ID": user_pool.user_pool_id,
         }
 

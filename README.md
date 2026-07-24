@@ -109,9 +109,9 @@ Configuration comes from environment variables:
 - `AWS_REGION` — AWS region (default `sa-east-1`)
 - `DYNAMODB_ENDPOINT_URL` — endpoint override for DynamoDB Local in dev; leave
   **unset** in AWS so the SDK uses the real DynamoDB endpoint
-- `SENTDM_API_KEY` — used by the `reminder` domain (see below) to send the
-  daily reminder via [Sent.dm](https://www.sent.dm); unused (safe to leave
-  unset) unless you're running the reminder job
+- `SENTDM_API_KEY`, `SENTDM_TEMPLATE_ID` — used by the `reminder` domain (see
+  below) to send the daily reminder via [Sent.dm](https://www.sent.dm);
+  unused (safe to leave unset) unless you're running the reminder job
 - `COGNITO_USER_POOL_ID` — which Cognito user pool the reminder job reads
   admin phone numbers from; set automatically by CDK, not something you
   configure by hand
@@ -124,12 +124,14 @@ Sent.dm), including each one's `observations` (e.g. payment/PIX details). It
 reuses `ExpenseService.list(month)` to resolve due dates/paid status for
 recurring and installment expenses the same way the API does.
 
-SMS for now, not WhatsApp: every business-initiated WhatsApp message needs a
-Meta-approved template regardless of category, which needs a full Meta
-Business Portfolio link — more setup than it's worth right now. SMS needs
-none of that, just plain text via the same Sent.dm account. Swapping back to
-WhatsApp later is a small change in `src/reminder/sentdm_client.py`
-(`channel`/`text` → `channel`/`template`), once that's set up.
+SMS for now, not WhatsApp: Sent.dm requires a template for every channel, no
+exceptions — there's no way to send arbitrary free text with no template at
+all. But SMS templates need no approval (unlike WhatsApp, which needs a
+Meta-approved template *and* a full Meta Business Portfolio link, regardless
+of category) — create one in the Sent.dm dashboard with a `{{message}}`
+variable and it's usable immediately, no waiting. Swapping to WhatsApp later
+is just pointing `SENTDM_TEMPLATE_ID` at a different (Meta-approved) template
+and changing `channel` in `src/reminder/sentdm_client.py`.
 
 Recipients come from Cognito, not a config value: `src/auth/services.py`'s
 `list_admin_phone_numbers` lists every user in the `admin` group and reads

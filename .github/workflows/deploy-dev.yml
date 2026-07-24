@@ -81,6 +81,7 @@ jobs:
         working-directory: infra
         env:
           SENTDM_API_KEY: ${{ secrets.SENTDM_API_KEY }}
+          SENTDM_TEMPLATE_ID: ${{ secrets.SENTDM_TEMPLATE_ID }}
         run: |
           cdk deploy \
             "CashlyticsDatabase-${ENV_NAME}" "CashlyticsBackend-${ENV_NAME}" \
@@ -88,6 +89,7 @@ jobs:
             --require-approval never \
             -c environment=${ENV_NAME} \
             -c sentdm_api_key="${SENTDM_API_KEY}" \
+            -c sentdm_template_id="${SENTDM_TEMPLATE_ID}" \
             --outputs-file cdk-backend-outputs.json
 
           python3 - <<'PY' >> "$GITHUB_OUTPUT"
