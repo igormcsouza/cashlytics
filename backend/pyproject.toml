@@ -8,6 +8,7 @@ dependencies = [
     "uvicorn[standard]>=0.34",
     "boto3>=1.35",
     "mangum>=0.19",
+    "sentdm>=0.32",
 ]
 
 [dependency-groups]

@@ -25,6 +25,14 @@ admin_emails: list[str] = [
     if email.strip()
 ]
 
+# Reminder domain (SMS via Sent.dm). Sourced from the same repo-level GitHub
+# secrets in both deploy-prod.yml and deploy-dev.yml (PR environments), via
+# -c; empty only for local dev where nothing exercises the reminder job.
+# Recipients come from Cognito (each admin's phone_number attribute), not a
+# context value.
+sentdm_api_key: str = app.node.try_get_context("sentdm_api_key") or ""
+sentdm_template_id: str = app.node.try_get_context("sentdm_template_id") or ""
+
 database = DatabaseStack(
     app,
     f"CashlyticsDatabase-{environment}",
@@ -39,6 +47,8 @@ backend = BackendStack(
     status_table=database.status_table,
     environment=environment,
     admin_emails=admin_emails,
+    sentdm_api_key=sentdm_api_key,
+    sentdm_template_id=sentdm_template_id,
     env=env,
 )
 

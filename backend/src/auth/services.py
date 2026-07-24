@@ -3,9 +3,11 @@
 Token validation happens before a request reaches this app: in AWS the API
 Gateway Cognito JWT authorizer rejects unauthenticated requests, and locally
 the API gateway proxy (local/apigw-proxy) plays the same role against
-cognito-local. This module only *trusts* the claims the authorizer forwards in
-the request context (surfaced by Mangum as ``request.scope["aws.event"]``) and
-enforces role-based access. Requests without claims are rejected.
+cognito-local. This module mostly *trusts* the claims the authorizer forwards
+in the request context (surfaced by Mangum as ``request.scope["aws.event"]``)
+and enforces role-based access — except for ``list_admin_phone_numbers``,
+which calls the Cognito API directly (used by the reminder domain to find who
+to message, since admins aren't tied to a request/claims at that point).
 
 This domain intentionally doesn't have the full five-file shape other domains
 do (see CLAUDE.md): there's no persisted entity, so models.py/exceptions.py/
@@ -15,8 +17,11 @@ src/expense/controllers.py). bootstrap.py, alongside this file, is local-only
 tooling that provisions cognito-local, mirroring src/core/bootstrap.py.
 """
 
+import boto3
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+
+from src.core.config import aws_region
 
 # Must match Config.ADMIN_GROUP in infra/stacks/config.py (the CfnUserPoolGroup
 # name CDK creates). The two are in separate, independently-deployed Python
@@ -78,3 +83,26 @@ def require_admin(
             status_code=status.HTTP_403_FORBIDDEN, detail="Admin role required"
         )
     return claims
+
+
+def list_admin_phone_numbers(user_pool_id: str) -> list[str]:
+    """Phone numbers of every Cognito user in the ``admin`` group.
+
+    Users without a ``phone_number`` attribute set are skipped rather than
+    raising — not every admin necessarily wants reminders.
+    """
+    client = boto3.client("cognito-idp", region_name=aws_region())
+    numbers = []
+    next_token = None
+    while True:
+        kwargs = {"UserPoolId": user_pool_id, "GroupName": ADMIN_GROUP}
+        if next_token:
+            kwargs["NextToken"] = next_token
+        response = client.list_users_in_group(**kwargs)
+        for user in response["Users"]:
+            attributes = {a["Name"]: a["Value"] for a in user["Attributes"]}
+            if attributes.get("phone_number"):
+                numbers.append(attributes["phone_number"])
+        next_token = response.get("NextToken")
+        if not next_token:
+            return numbers

@@ -14,6 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from src.expense.controllers import router as expense_router
+from src.reminder.controllers import router as reminder_router
 
 logging.basicConfig(level=os.environ.get("LOG_LEVEL", "INFO"))
 logger = logging.getLogger("cashlytics")
@@ -30,6 +31,7 @@ app.add_middleware(
 )
 
 app.include_router(expense_router)
+app.include_router(reminder_router)
 
 
 @app.exception_handler(ClientError)
